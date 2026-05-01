@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-gray-50 text-gray-900 antialiased;
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+  }
+}
+
+@layer components {
+  /* Brand button styles */
+  .btn-primary {
+    @apply w-full py-3 px-4 rounded-xl bg-brand-navy text-brand-cyan font-semibold text-sm
+           transition-opacity active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply w-full py-3 px-4 rounded-xl border border-gray-200 bg-white text-gray-600 font-semibold text-sm
+           transition-colors hover:bg-gray-50 active:scale-[0.98];
+  }
+
+  .btn-cyan {
+    @apply w-full py-3 px-4 rounded-xl bg-brand-cyan text-brand-navy font-semibold text-sm
+           transition-opacity active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  /* Card */
+  .card {
+    @apply bg-white rounded-2xl border border-gray-100 p-4;
+  }
+
+  /* Input */
+  .input {
+    @apply w-full px-3 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-900
+           outline-none transition-colors focus:border-brand-cyan focus:bg-white
+           placeholder:text-gray-400;
+  }
+
+  .label {
+    @apply block text-xs font-semibold text-gray-500 mb-1.5;
+  }
+
+  /* Receipt status badge */
+  .badge-ok      { @apply text-[10px] font-semibold px-2 py-0.5 rounded-full bg-green-50 text-green-700; }
+  .badge-warn    { @apply text-[10px] font-semibold px-2 py-0.5 rounded-full bg-yellow-50 text-yellow-700; }
+  .badge-overdue { @apply text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-50 text-red-600; }
+  .badge-form    { @apply text-[10px] font-semibold px-2 py-0.5 rounded-full bg-yellow-50 text-yellow-700; }
+}
