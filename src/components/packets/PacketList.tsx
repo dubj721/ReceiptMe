@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import React, { useState, useRef } from "react";
 import Link from "next/link";
 import { daysOld, isPolicyApplicable } from "@/types";
 import type { Receipt, Packet } from "@/types";
@@ -16,7 +16,7 @@ function DaysBadge({ days, country }: { days: number; country: string }) {
 }
 
 /* ─── Form icon ──────────────────────────────────────────── */
-function FormIconButton({ completed, onClick }: { completed: boolean; onClick: () => void }) {
+function FormIconButton({ completed, onClick }: { completed: boolean; onClick: (e: React.MouseEvent<HTMLButtonElement>) => void }) {
   return (
     <button onClick={onClick}
       title={completed ? "View Missing Receipt Form" : "Missing Receipt Form — action needed"}
