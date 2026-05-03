@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { daysOld } from "@/types";
 import type { Receipt, ReceiptCategory } from "@/types";
 
@@ -36,6 +37,7 @@ export default function ReceiptDetailModal({
   onUpdated?: (updated: Partial<Receipt>) => void;
   initialEditing?: boolean;
 }) {
+  const router = useRouter();
   const days = daysOld(receipt.transaction_date);
   const [imageFullscreen, setImageFullscreen] = useState(false);
   const [isEditing, setIsEditing] = useState(initialEditing);
@@ -75,8 +77,9 @@ export default function ReceiptDetailModal({
         body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error(await res.text());
-      setIsEditing(false);
       onUpdated?.(body);
+      setIsEditing(false);
+      router.refresh();
     } catch (e: any) {
       setError(e.message ?? "Save failed");
     } finally { setSaving(false); }
