@@ -441,6 +441,23 @@ export default function PacketList({
   const [detailReceipt, setDetailReceipt] = useState<Receipt | null>(null);
   const [localPackets,  setLocalPackets]  = useState(packets);
 
+  const now = new Date();
+  const isCurrentMonth = (p: Packet & { receipts: Receipt[] }) => {
+    const d = new Date(p.date_to);
+    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+  };
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(() => {
+    const s = new Set<string>();
+    packets.forEach(p => { if (isCurrentMonth(p)) s.add(p.id); });
+    if (s.size === 0 && packets.length > 0) s.add(packets[0].id);
+    return s;
+  });
+  const toggleExpanded = (id: string) => setExpandedIds(prev => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+
   async function handleDelete(receiptId: string) {
     const res = await fetch(`/api/receipts/${receiptId}`, { method: "DELETE" });
     if (res.ok) {
@@ -493,11 +510,24 @@ export default function PacketList({
           const hasPending = receipts.some(r => r.source === "bank_transaction" && !r.missing_receipt_form?.completed_at);
           const canExport  = !hasBlocked && !hasPending;
 
+          const isExpanded = expandedIds.has(packet.id);
+          const isCurrent  = isCurrentMonth(packet);
+
           return (
             <div key={packet.id}>
-              <div className="flex items-center justify-between mb-2 px-1">
+              {/* Packet header — always visible, clickable to expand/collapse */}
+              <button
+                onClick={() => toggleExpanded(packet.id)}
+                className="w-full flex items-center justify-between mb-2 px-1 py-1 rounded-xl hover:bg-gray-50 transition-colors text-left">
                 <div>
-                  <h2 className="text-sm font-bold text-gray-900">{packet.label}</h2>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-sm font-bold text-gray-900">{packet.label}</h2>
+                    {isCurrent && (
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-brand-cyan/10 text-brand-cyan uppercase tracking-wide">
+                        Current
+                      </span>
+                    )}
+                  </div>
                   <p className="text-[11px] text-gray-400">
                     {new Date(packet.date_from).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                     {" – "}
@@ -505,37 +535,49 @@ export default function PacketList({
                     {packet.client_name && ` · ${packet.client_name}`}
                   </p>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm font-bold text-gray-900">${total.toFixed(2)}</p>
-                  <p className="text-[11px] text-gray-400">{receipts.length} receipts</p>
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-gray-900">${total.toFixed(2)}</p>
+                    <p className="text-[11px] text-gray-400">{receipts.length} receipts</p>
+                  </div>
+                  <svg
+                    width="16" height="16" viewBox="0 0 16 16" fill="none"
+                    className={`text-gray-400 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}>
+                    <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
                 </div>
-              </div>
+              </button>
 
-              {receipts.map(r => (
-                <ReceiptCard
-                  key={r.id}
-                  receipt={r}
-                  country={country}
-                  onViewClick={setDetailReceipt}
-                  onFormIconClick={setSheetReceipt}
-                  onDelete={handleDelete}
-                />
-              ))}
+              {/* Receipts + export — only when expanded */}
+              {isExpanded && (
+                <>
+                  {receipts.map(r => (
+                    <ReceiptCard
+                      key={r.id}
+                      receipt={r}
+                      country={country}
+                      onViewClick={setDetailReceipt}
+                      onFormIconClick={setSheetReceipt}
+                      onDelete={handleDelete}
+                    />
+                  ))}
 
-              <div className="flex items-center justify-end gap-2 mt-3">
-                {!canExport && (
-                  <p className="text-[11px] text-yellow-600 flex-1">
-                    {hasPending ? "Complete forms to export" : "Remove overdue receipts first"}
-                  </p>
-                )}
-                <button
-                  disabled={!canExport}
-                  onClick={() => canExport && exportPDF(packet, userName)}
-                  className={`px-5 py-2 rounded-xl text-xs font-bold transition-all
-                    ${canExport ? "bg-brand-cyan text-brand-navy hover:opacity-90" : "bg-gray-100 text-gray-400 cursor-not-allowed"}`}>
-                  Export PDF
-                </button>
-              </div>
+                  <div className="flex items-center justify-end gap-2 mt-3">
+                    {!canExport && (
+                      <p className="text-[11px] text-yellow-600 flex-1">
+                        {hasPending ? "Complete forms to export" : "Remove overdue receipts first"}
+                      </p>
+                    )}
+                    <button
+                      disabled={!canExport}
+                      onClick={() => canExport && exportPDF(packet, userName)}
+                      className={`px-5 py-2 rounded-xl text-xs font-bold transition-all
+                        ${canExport ? "bg-brand-cyan text-brand-navy hover:opacity-90" : "bg-gray-100 text-gray-400 cursor-not-allowed"}`}>
+                      Export PDF
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           );
         })}
