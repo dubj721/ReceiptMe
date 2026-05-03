@@ -46,11 +46,12 @@ function FormIconButton({ completed, onClick }: { completed: boolean; onClick: (
 /* ─── Swipeable receipt card ─────────────────────────────── */
 function ReceiptCard({
   receipt, country,
-  onFormIconClick, onViewClick, onDelete,
+  onFormIconClick, onViewClick, onEditClick, onDelete,
 }: {
   receipt: Receipt; country: string;
   onFormIconClick: (r: Receipt) => void;
   onViewClick: (r: Receipt) => void;
+  onEditClick: (r: Receipt) => void;
   onDelete: (id: string) => void;
 }) {
   const days     = daysOld(receipt.transaction_date);
@@ -102,7 +103,7 @@ function ReceiptCard({
       {/* Action buttons behind */}
       <div className="absolute right-0 top-0 bottom-0 flex items-stretch">
         <button
-          onClick={() => setOffset(0)}
+          onClick={() => { setOffset(0); onEditClick(receipt); }}
           className="w-16 bg-gray-400 flex flex-col items-center justify-center gap-1 text-white text-[10px] font-bold"
           style={{ borderRadius: "0 12px 12px 0" }}>
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -440,6 +441,7 @@ export default function PacketList({
   const [sheetReceipt,  setSheetReceipt]  = useState<Receipt | null>(null);
   const [detailReceipt, setDetailReceipt] = useState<Receipt | null>(null);
   const [localPackets,  setLocalPackets]  = useState(packets);
+  const [editMode,      setEditMode]      = useState(false);
 
   const now = new Date();
   const isCurrentMonth = (p: Packet & { receipts: Receipt[] }) => {
@@ -595,7 +597,17 @@ export default function PacketList({
       {detailReceipt && (
         <ReceiptDetailModal
           receipt={detailReceipt}
-          onClose={() => setDetailReceipt(null)}
+          initialEditing={editMode}
+          onClose={() => { setDetailReceipt(null); setEditMode(false); }}
+          onUpdated={(updated) => {
+            setLocalPackets(prev => prev.map(p => ({
+              ...p,
+              receipts: p.receipts.map(r =>
+                r.id === detailReceipt.id ? { ...r, ...updated } as Receipt : r
+              ),
+            })));
+            setDetailReceipt(prev => prev ? { ...prev, ...updated } as Receipt : null);
+          }}
         />
       )}
     </>
