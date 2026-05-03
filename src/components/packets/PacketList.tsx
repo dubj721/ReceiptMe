@@ -558,7 +558,8 @@ export default function PacketList({
                       key={r.id}
                       receipt={r}
                       country={country}
-                      onViewClick={setDetailReceipt}
+                      onViewClick={(r) => { setEditMode(false); setDetailReceipt(r); }}
+                      onEditClick={(r) => { setEditMode(true); setDetailReceipt(r); }}
                       onFormIconClick={setSheetReceipt}
                       onDelete={handleDelete}
                     />
