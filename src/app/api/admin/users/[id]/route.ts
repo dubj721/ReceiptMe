@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function GET(
   _req: NextRequest,
@@ -13,6 +14,7 @@ export async function GET(
   if (!me?.is_admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = await params;
+  const admin = createAdminClient();
 
   const [
     { data: profile },
@@ -20,10 +22,10 @@ export async function GET(
     { data: events },
     { data: feedbackItems },
   ] = await Promise.all([
-    supabase.from("users").select("*").eq("id", id).single(),
-    supabase.from("receipts").select("*").eq("user_id", id).order("transaction_date", { ascending: false }),
-    supabase.from("events").select("*").eq("user_id", id).order("created_at", { ascending: false }).limit(50),
-    supabase.from("feedback").select("*").eq("user_id", id).order("created_at", { ascending: false }),
+    admin.from("users").select("*").eq("id", id).single(),
+    admin.from("receipts").select("*").eq("user_id", id).order("transaction_date", { ascending: false }),
+    admin.from("events").select("*").eq("user_id", id).order("created_at", { ascending: false }).limit(50),
+    admin.from("feedback").select("*").eq("user_id", id).order("created_at", { ascending: false }),
   ]);
 
   return NextResponse.json({ profile, receipts, events, feedback: feedbackItems });
@@ -46,7 +48,8 @@ export async function PATCH(
   const updates: Record<string, unknown> = {};
   for (const key of allowed) { if (key in body) updates[key] = body[key]; }
 
-  const { error } = await supabase.from("users").update(updates).eq("id", id);
+  const admin = createAdminClient();
+  const { error } = await admin.from("users").update(updates).eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });
 }

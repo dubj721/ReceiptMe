@@ -1,10 +1,10 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 
 export default async function AdminUserDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const supabase = await createClient();
+  const admin = createAdminClient();
 
   const [
     { data: profile },
@@ -12,10 +12,10 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
     { data: events },
     { data: feedbackItems },
   ] = await Promise.all([
-    supabase.from("users").select("*").eq("id", id).single(),
-    supabase.from("receipts").select("*").eq("user_id", id).order("transaction_date", { ascending: false }),
-    supabase.from("events").select("*").eq("user_id", id).order("created_at", { ascending: false }).limit(30),
-    supabase.from("feedback").select("*").eq("user_id", id).order("created_at", { ascending: false }),
+    admin.from("users").select("*").eq("id", id).single(),
+    admin.from("receipts").select("*").eq("user_id", id).order("transaction_date", { ascending: false }),
+    admin.from("events").select("*").eq("user_id", id).order("created_at", { ascending: false }).limit(30),
+    admin.from("feedback").select("*").eq("user_id", id).order("created_at", { ascending: false }),
   ]);
 
   if (!profile) notFound();
@@ -26,21 +26,18 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
     : null;
 
   const eventLabels: Record<string, string> = {
-    receipt_created: "📥 Submitted a receipt",
-    receipt_edited: "\u270F\uFE0F Edited a receipt",
-    receipt_deleted: "🗑️ Deleted a receipt",
-    pdf_exported: "📄 Exported PDF",
-    missing_form_completed: "\u2713 Completed missing form",
-    feedback_submitted: "💬 Submitted feedback",
+    receipt_created:       "📥 Submitted a receipt",
+    receipt_edited:        "✏️ Edited a receipt",
+    receipt_deleted:       "🗑️ Deleted a receipt",
+    pdf_exported:          "📄 Exported PDF",
+    missing_form_completed:"✓ Completed missing form",
+    feedback_submitted:    "💬 Submitted feedback",
   };
 
   return (
     <div className="max-w-3xl mx-auto space-y-5">
-      <div className="flex items-center gap-3">
-        <Link href="/admin/users" className="text-xs text-gray-400 hover:text-gray-600">← Users</Link>
-      </div>
+      <Link href="/admin/users" className="text-xs text-gray-400 hover:text-gray-600">← Users</Link>
 
-      {/* Profile header */}
       <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex items-center gap-4">
         <div className="w-14 h-14 rounded-full bg-brand-navy flex items-center justify-center flex-shrink-0">
           <span className="text-xl font-bold text-brand-cyan">{profile.name?.charAt(0).toUpperCase()}</span>
@@ -57,13 +54,12 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
         )}
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { label: "Receipts", value: receipts?.length ?? 0 },
-          { label: "Total Spent", value: "$" + totalAmount.toFixed(2) },
-          { label: "Events Logged", value: events?.length ?? 0 },
-          { label: "Avg Rating", value: avgRating ? avgRating + "/5" : "—" },
+          { label: "Receipts",     value: receipts?.length ?? 0 },
+          { label: "Total Spent",  value: "$" + totalAmount.toFixed(2) },
+          { label: "Events Logged",value: events?.length ?? 0 },
+          { label: "Avg Rating",   value: avgRating ? avgRating + "/5" : "—" },
         ].map(({ label, value }) => (
           <div key={label} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 text-center">
             <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">{label}</p>
@@ -73,17 +69,14 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
       </div>
 
       <div className="grid md:grid-cols-2 gap-4">
-        {/* Activity timeline */}
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
           <p className="text-sm font-bold text-gray-900 mb-3">Recent Activity</p>
-          {(events?.length ?? 0) === 0 ? (
-            <p className="text-xs text-gray-400">No events yet</p>
-          ) : (
+          {(events?.length ?? 0) === 0 ? <p className="text-xs text-gray-400">No events yet</p> : (
             <div className="space-y-2.5">
               {(events ?? []).slice(0, 15).map((e: any) => (
                 <div key={e.id} className="flex items-start gap-2.5">
                   <div className="w-1.5 h-1.5 rounded-full bg-brand-cyan mt-1.5 flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
+                  <div>
                     <p className="text-xs text-gray-700">{eventLabels[e.event_type] ?? e.event_type}</p>
                     <p className="text-[10px] text-gray-300">
                       {new Date(e.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
@@ -95,12 +88,9 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
           )}
         </div>
 
-        {/* Feedback */}
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
           <p className="text-sm font-bold text-gray-900 mb-3">Feedback</p>
-          {(feedbackItems?.length ?? 0) === 0 ? (
-            <p className="text-xs text-gray-400">No feedback yet</p>
-          ) : (
+          {(feedbackItems?.length ?? 0) === 0 ? <p className="text-xs text-gray-400">No feedback yet</p> : (
             <div className="space-y-3">
               {(feedbackItems ?? []).map((f: any) => (
                 <div key={f.id} className="border-b border-gray-50 pb-3 last:border-0">

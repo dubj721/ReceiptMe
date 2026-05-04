@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function GET() {
   const supabase = await createClient();
@@ -9,7 +10,8 @@ export async function GET() {
   const { data: me } = await supabase.from("users").select("is_admin").eq("id", user.id).single();
   if (!me?.is_admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const { data } = await supabase
+  const admin = createAdminClient();
+  const { data } = await admin
     .from("feedback")
     .select("*, user:users(name, email)")
     .order("created_at", { ascending: false });

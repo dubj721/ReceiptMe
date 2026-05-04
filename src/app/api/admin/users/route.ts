@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function GET() {
   const supabase = await createClient();
@@ -9,31 +10,24 @@ export async function GET() {
   const { data: me } = await supabase.from("users").select("is_admin").eq("id", user.id).single();
   if (!me?.is_admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const { data: users } = await supabase.from("users").select("*").order("created_at", { ascending: false });
+  const admin = createAdminClient();
+  const { data: users } = await admin.from("users").select("*").order("created_at", { ascending: false });
 
-  // For each user fetch receipt count + last event
   const enriched = await Promise.all((users ?? []).map(async (u: any) => {
     const [
       { count: receiptCount },
-      { data: lastEvent },
       { count: overdueCount },
       { count: exportCount },
+      { data: lastEvent },
     ] = await Promise.all([
-      supabase.from("receipts").select("*", { count: "exact", head: true }).eq("user_id", u.id),
-      supabase.from("events").select("created_at").eq("user_id", u.id)
-        .order("created_at", { ascending: false }).limit(1),
-      supabase.from("receipts").select("*", { count: "exact", head: true })
-        .eq("user_id", u.id).eq("status", "overdue_flagged"),
-      supabase.from("events").select("*", { count: "exact", head: true })
-        .eq("user_id", u.id).eq("event_type", "pdf_exported"),
+      admin.from("receipts").select("*", { count: "exact", head: true }).eq("user_id", u.id),
+      admin.from("receipts").select("*", { count: "exact", head: true }).eq("user_id", u.id).eq("status", "overdue_flagged"),
+      admin.from("events").select("*", { count: "exact", head: true }).eq("user_id", u.id).eq("event_type", "pdf_exported"),
+      admin.from("events").select("created_at").eq("user_id", u.id).order("created_at", { ascending: false }).limit(1),
     ]);
-    return {
-      ...u,
-      receipt_count: receiptCount ?? 0,
-      overdue_count: overdueCount ?? 0,
-      export_count: exportCount ?? 0,
-      last_active: lastEvent?.[0]?.created_at ?? u.created_at,
-    };
+    const lastActive = lastEvent?.[0]?.created_at ?? u.created_at;
+    const daysSince = Math.floor((Date.now() - new Date(lastActive).getTime()) / (1000 * 60 * 60 * 24));
+    return { ...u, receiptCount: receiptCount ?? 0, overdueCount: overdueCount ?? 0, exportCount: exportCount ?? 0, lastActive, daysSince };
   }));
 
   return NextResponse.json(enriched);
