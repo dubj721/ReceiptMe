@@ -4,12 +4,13 @@ import { useState } from "react";
 import { trackEvent } from "@/lib/track";
 
 export default function FeedbackWidget() {
-  const [open, setOpen] = useState(false);
-  const [rating, setRating] = useState(0);
-  const [hover, setHover] = useState(0);
-  const [comment, setComment] = useState("");
+  const [collapsed, setCollapsed] = useState(false);
+  const [open, setOpen]           = useState(false);
+  const [rating, setRating]       = useState(0);
+  const [hover, setHover]         = useState(0);
+  const [comment, setComment]     = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [done, setDone] = useState(false);
+  const [done, setDone]           = useState(false);
 
   async function submit() {
     if (!rating) return;
@@ -30,19 +31,41 @@ export default function FeedbackWidget() {
 
   return (
     <>
-      {/* Floating button — shown above bottom nav */}
-      <button
-        onClick={() => setOpen(true)}
-        className="fixed bottom-24 right-4 z-30 flex items-center gap-2 px-3.5 py-2 rounded-full
-          bg-brand-navy border border-brand-cyan/30 shadow-lg text-brand-cyan text-xs font-semibold
-          active:scale-95 transition-transform md:bottom-8">
-        <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
-          <path d="M2 2h12v9H9l-3 3v-3H2V2z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
-          <path d="M5 6h6M5 8.5h4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
-        </svg>
-        Feedback
-      </button>
+      {/* Floating trigger */}
+      <div className="fixed bottom-24 right-4 z-30 flex items-center gap-1.5 md:bottom-8">
+        {/* Collapse/expand toggle */}
+        <button
+          onClick={() => setCollapsed(c => !c)}
+          className="w-7 h-7 rounded-full bg-brand-navy border border-brand-cyan/20 shadow
+            flex items-center justify-center text-brand-cyan/60 hover:text-brand-cyan transition-colors">
+          {collapsed ? (
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+              <path d="M2 5h6M5 2l3 3-3 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          ) : (
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+              <path d="M8 5H2M5 8L2 5l3-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          )}
+        </button>
 
+        {/* Main feedback button — hidden when collapsed */}
+        {!collapsed && (
+          <button
+            onClick={() => setOpen(true)}
+            className="flex items-center gap-2 px-3.5 py-2 rounded-full
+              bg-brand-navy border border-brand-cyan/30 shadow-lg text-brand-cyan text-xs font-semibold
+              active:scale-95 transition-transform">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+              <path d="M2 2h12v9H9l-3 3v-3H2V2z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
+              <path d="M5 6h6M5 8.5h4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+            </svg>
+            Feedback
+          </button>
+        )}
+      </div>
+
+      {/* Feedback modal */}
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setOpen(false)} />
@@ -67,7 +90,6 @@ export default function FeedbackWidget() {
 
                 <p className="text-xs text-gray-500 mb-3">How is the app working for you?</p>
 
-                {/* Star rating */}
                 <div className="flex gap-2 mb-4">
                   {[1,2,3,4,5].map(n => (
                     <button key={n}

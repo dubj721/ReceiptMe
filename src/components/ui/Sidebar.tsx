@@ -12,7 +12,7 @@ const nav = [
   { href: "/archive", label: "Overdue Archive",color: "text-brand-pink" },
 ];
 
-export default function Sidebar({ profile }: { profile: User | null }) {
+export default function Sidebar({ profile }: { profile: (User & { is_admin?: boolean }) | null }) {
   const pathname = usePathname();
   const router   = useRouter();
 
@@ -62,6 +62,17 @@ export default function Sidebar({ profile }: { profile: User | null }) {
           className="w-full text-left px-3 py-2 text-white/40 hover:text-white/70 text-xs transition-colors block">
           Account Settings
         </Link>
+        {profile?.is_admin && (
+          <button
+            onClick={() => router.push("/admin")}
+            className="w-full text-left px-3 py-2 text-brand-cyan hover:text-white text-xs font-semibold transition-colors flex items-center gap-2">
+            <svg width="13" height="13" viewBox="0 0 15 15" fill="none">
+              <rect x="1.5" y="1.5" width="12" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.3"/>
+              <path d="M5 13.5h5M7.5 10.5v3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+            </svg>
+            Switch to Admin View
+          </button>
+        )}
         <button onClick={signOut}
           className="w-full text-left px-3 py-2 text-white/40 hover:text-white/70 text-xs transition-colors">
           Sign out
