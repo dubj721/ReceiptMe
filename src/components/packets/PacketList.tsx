@@ -46,13 +46,13 @@ function FormIconButton({ completed, onClick }: { completed: boolean; onClick: (
 /* ─── Swipeable receipt card ─────────────────────────────── */
 function ReceiptCard({
   receipt, country,
-  onFormIconClick, onViewClick, onEditClick, onDelete,
+  onFormIconClick, onViewClick, onDelete, onEditClick,
 }: {
   receipt: Receipt; country: string;
   onFormIconClick: (r: Receipt) => void;
   onViewClick: (r: Receipt) => void;
-  onEditClick: (r: Receipt) => void;
   onDelete: (id: string) => void;
+  onEditClick?: (r: Receipt) => void;
 }) {
   const days     = daysOld(receipt.transaction_date);
   const isBank   = receipt.source === "bank_transaction";
@@ -103,7 +103,7 @@ function ReceiptCard({
       {/* Action buttons behind */}
       <div className="absolute right-0 top-0 bottom-0 flex items-stretch">
         <button
-          onClick={() => { setOffset(0); onEditClick(receipt); }}
+          onClick={() => { setOffset(0); onEditClick?.(receipt); }}
           className="w-16 bg-gray-400 flex flex-col items-center justify-center gap-1 text-white text-[10px] font-bold"
           style={{ borderRadius: "0 12px 12px 0" }}>
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -158,7 +158,17 @@ function ReceiptCard({
           />
         )}
 
-        {/* Desktop hover delete — hidden on mobile (swipe handles it there) */}
+        {/* Desktop hover actions — hidden on mobile (swipe handles it there) */}
+        <button
+          onClick={(e) => { e.stopPropagation(); onEditClick?.(receipt); }}
+          title="Edit receipt"
+          className="hidden md:flex flex-shrink-0 w-7 h-7 rounded-lg items-center justify-center
+            text-gray-300 hover:bg-blue-50 hover:text-blue-400 transition-all
+            opacity-0 group-hover:opacity-100">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+            <path d="M2 14l1.5-5.5L11 1l3 3-7.5 7.5L2 14z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
+          </svg>
+        </button>
         <button
           onClick={(e) => { e.stopPropagation(); setConfirming(true); }}
           title="Delete receipt"
@@ -443,23 +453,6 @@ export default function PacketList({
   const [localPackets,  setLocalPackets]  = useState(packets);
   const [editMode,      setEditMode]      = useState(false);
 
-  const now = new Date();
-  const isCurrentMonth = (p: Packet & { receipts: Receipt[] }) => {
-    const d = new Date(p.date_to);
-    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
-  };
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(() => {
-    const s = new Set<string>();
-    packets.forEach(p => { if (isCurrentMonth(p)) s.add(p.id); });
-    if (s.size === 0 && packets.length > 0) s.add(packets[0].id);
-    return s;
-  });
-  const toggleExpanded = (id: string) => setExpandedIds(prev => {
-    const next = new Set(prev);
-    if (next.has(id)) next.delete(id); else next.add(id);
-    return next;
-  });
-
   async function handleDelete(receiptId: string) {
     const res = await fetch(`/api/receipts/${receiptId}`, { method: "DELETE" });
     if (res.ok) {
@@ -512,24 +505,11 @@ export default function PacketList({
           const hasPending = receipts.some(r => r.source === "bank_transaction" && !r.missing_receipt_form?.completed_at);
           const canExport  = !hasBlocked && !hasPending;
 
-          const isExpanded = expandedIds.has(packet.id);
-          const isCurrent  = isCurrentMonth(packet);
-
           return (
             <div key={packet.id}>
-              {/* Packet header — always visible, clickable to expand/collapse */}
-              <button
-                onClick={() => toggleExpanded(packet.id)}
-                className="w-full flex items-center justify-between mb-2 px-1 py-1 rounded-xl hover:bg-gray-50 transition-colors text-left">
+              <div className="flex items-center justify-between mb-2 px-1">
                 <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-sm font-bold text-gray-900">{packet.label}</h2>
-                    {isCurrent && (
-                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-brand-cyan/10 text-brand-cyan uppercase tracking-wide">
-                        Current
-                      </span>
-                    )}
-                  </div>
+                  <h2 className="text-sm font-bold text-gray-900">{packet.label}</h2>
                   <p className="text-[11px] text-gray-400">
                     {new Date(packet.date_from).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                     {" – "}
@@ -537,50 +517,38 @@ export default function PacketList({
                     {packet.client_name && ` · ${packet.client_name}`}
                   </p>
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="text-right">
-                    <p className="text-sm font-bold text-gray-900">${total.toFixed(2)}</p>
-                    <p className="text-[11px] text-gray-400">{receipts.length} receipts</p>
-                  </div>
-                  <svg
-                    width="16" height="16" viewBox="0 0 16 16" fill="none"
-                    className={`text-gray-400 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}>
-                    <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
+                <div className="text-right">
+                  <p className="text-sm font-bold text-gray-900">${total.toFixed(2)}</p>
+                  <p className="text-[11px] text-gray-400">{receipts.length} receipts</p>
                 </div>
-              </button>
+              </div>
 
-              {/* Receipts + export — only when expanded */}
-              {isExpanded && (
-                <>
-                  {receipts.map(r => (
-                    <ReceiptCard
-                      key={r.id}
-                      receipt={r}
-                      country={country}
-                      onViewClick={(r) => { setEditMode(false); setDetailReceipt(r); }}
-                      onEditClick={(r) => { setEditMode(true); setDetailReceipt(r); }}
-                      onFormIconClick={setSheetReceipt}
-                      onDelete={handleDelete}
-                    />
-                  ))}
+              {receipts.map(r => (
+                <ReceiptCard
+                  key={r.id}
+                  receipt={r}
+                  country={country}
+                  onViewClick={(r) => { setEditMode(false); setDetailReceipt(r); }}
+                  onFormIconClick={setSheetReceipt}
+                  onDelete={handleDelete}
+                  onEditClick={(r) => { setEditMode(true); setDetailReceipt(r); }}
+                />
+              ))}
 
-                  <div className="flex items-center justify-end gap-2 mt-3">
-                    {!canExport && (
-                      <p className="text-[11px] text-yellow-600 flex-1">
-                        {hasPending ? "Complete forms to export" : "Remove overdue receipts first"}
-                      </p>
-                    )}
-                    <button
-                      disabled={!canExport}
-                      onClick={() => canExport && exportPDF(packet, userName)}
-                      className={`px-5 py-2 rounded-xl text-xs font-bold transition-all
-                        ${canExport ? "bg-brand-cyan text-brand-navy hover:opacity-90" : "bg-gray-100 text-gray-400 cursor-not-allowed"}`}>
-                      Export PDF
-                    </button>
-                  </div>
-                </>
-              )}
+              <div className="flex items-center justify-end gap-2 mt-3">
+                {!canExport && (
+                  <p className="text-[11px] text-yellow-600 flex-1">
+                    {hasPending ? "Complete forms to export" : "Remove overdue receipts first"}
+                  </p>
+                )}
+                <button
+                  disabled={!canExport}
+                  onClick={() => canExport && exportPDF(packet, userName)}
+                  className={`px-5 py-2 rounded-xl text-xs font-bold transition-all
+                    ${canExport ? "bg-brand-cyan text-brand-navy hover:opacity-90" : "bg-gray-100 text-gray-400 cursor-not-allowed"}`}>
+                  Export PDF
+                </button>
+              </div>
             </div>
           );
         })}
@@ -598,13 +566,14 @@ export default function PacketList({
       {detailReceipt && (
         <ReceiptDetailModal
           receipt={detailReceipt}
-          initialEditing={editMode}
           onClose={() => { setDetailReceipt(null); setEditMode(false); }}
+          initialEditing={editMode}
           onUpdated={(updated) => {
+            const id = detailReceipt.id;
             setLocalPackets(prev => prev.map(p => ({
               ...p,
               receipts: p.receipts.map(r =>
-                r.id === detailReceipt.id ? { ...r, ...updated } as Receipt : r
+                r.id === id ? { ...r, ...updated } as Receipt : r
               ),
             })));
             setDetailReceipt(prev => prev ? { ...prev, ...updated } as Receipt : null);
