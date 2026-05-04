@@ -5,11 +5,16 @@
 @layer base {
   html {
     -webkit-tap-highlight-color: transparent;
+    height: 100%;
+    overscroll-behavior: none;
   }
 
   body {
     @apply bg-gray-50 text-gray-900 antialiased;
     font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
   }
 }
 

@@ -18,16 +18,16 @@ export default async function DashboardLayout({ children }: { children: React.Re
     .single();
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="h-screen overflow-hidden bg-gray-50 flex">
       {/* Desktop sidebar — hidden on mobile */}
       <div className="hidden md:flex md:w-56 md:flex-shrink-0">
         <Sidebar profile={profile} />
       </div>
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col min-h-screen md:min-h-0">
+      <div className="flex-1 flex flex-col h-full overflow-hidden">
         {/* Mobile top bar */}
-        <div className="md:hidden">
+        <div className="md:hidden flex-shrink-0">
           <TopBar profile={profile} />
         </div>
 
