@@ -49,7 +49,7 @@ export default function FeedbackWidget() {
           <div className="relative bg-white w-full max-w-sm rounded-3xl shadow-2xl p-6">
             {done ? (
               <div className="text-center py-4">
-                <p className="text-3xl mb-2">\u{1F64F}</p>
+                <p className="text-3xl mb-2">🙏</p>
                 <p className="text-sm font-bold text-gray-900">Thanks for the feedback!</p>
                 <p className="text-xs text-gray-400 mt-1">It helps us improve the app.</p>
               </div>
@@ -75,7 +75,7 @@ export default function FeedbackWidget() {
                       onMouseEnter={() => setHover(n)}
                       onMouseLeave={() => setHover(0)}
                       className="text-2xl transition-transform active:scale-90">
-                      {n <= (hover || rating) ? "\u2B50" : "\u{1F90D}"}
+                      {n <= (hover || rating) ? "⭐" : "🤍"}
                     </button>
                   ))}
                 </div>

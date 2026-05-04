@@ -26,12 +26,12 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
     : null;
 
   const eventLabels: Record<string, string> = {
-    receipt_created: "\u{1F4E5} Submitted a receipt",
+    receipt_created: "📥 Submitted a receipt",
     receipt_edited: "\u270F\uFE0F Edited a receipt",
-    receipt_deleted: "\u{1F5D1}\uFE0F Deleted a receipt",
-    pdf_exported: "\u{1F4C4} Exported PDF",
+    receipt_deleted: "🗑️ Deleted a receipt",
+    pdf_exported: "📄 Exported PDF",
     missing_form_completed: "\u2713 Completed missing form",
-    feedback_submitted: "\u{1F4AC} Submitted feedback",
+    feedback_submitted: "💬 Submitted feedback",
   };
 
   return (
@@ -105,7 +105,7 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
               {(feedbackItems ?? []).map((f: any) => (
                 <div key={f.id} className="border-b border-gray-50 pb-3 last:border-0">
                   <div className="flex items-center justify-between mb-0.5">
-                    <span className="text-sm">{"\u2B50".repeat(f.rating)}</span>
+                    <span className="text-sm">{"⭐".repeat(f.rating)}</span>
                     <span className="text-[10px] text-gray-300">
                       {new Date(f.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                     </span>

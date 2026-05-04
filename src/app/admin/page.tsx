@@ -74,7 +74,7 @@ export default async function AdminOverviewPage() {
                 <div key={f.id} className="border-b border-gray-50 pb-3 last:border-0 last:pb-0">
                   <div className="flex items-center justify-between mb-0.5">
                     <p className="text-xs font-semibold text-gray-700">{f.user?.name ?? "Unknown"}</p>
-                    <span className="text-xs">{"\u2B50".repeat(f.rating)}</span>
+                    <span className="text-xs">{"⭐".repeat(f.rating)}</span>
                   </div>
                   {f.comment && <p className="text-xs text-gray-500 italic">"{f.comment}"</p>}
                   <p className="text-[10px] text-gray-300 mt-0.5">

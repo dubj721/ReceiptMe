@@ -35,7 +35,7 @@ export default async function AdminFeedbackPage() {
           {dist.map(({ star, count, pct }) => (
             <div key={star} className="flex items-center gap-2">
               <span className="text-xs text-gray-500 w-4">{star}</span>
-              <span className="text-xs">\u2B50</span>
+              <span className="text-xs">⭐</span>
               <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
                 <div className="h-full bg-brand-cyan rounded-full transition-all" style={{ width: pct + "%" }} />
               </div>
@@ -67,7 +67,7 @@ export default async function AdminFeedbackPage() {
                   </div>
                 </div>
                 <div className="text-right flex-shrink-0">
-                  <p className="text-sm">{"\u2B50".repeat(f.rating)}</p>
+                  <p className="text-sm">{"⭐".repeat(f.rating)}</p>
                   <p className="text-[10px] text-gray-300 mt-0.5">
                     {new Date(f.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                   </p>
