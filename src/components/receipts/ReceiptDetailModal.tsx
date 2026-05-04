@@ -90,30 +90,31 @@ export default function ReceiptDetailModal({
 
   return (
     <>
-      {/* Overlay */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center px-5">
+      {/* Overlay — padded to stay clear of TopBar (mobile) and BottomNav */}
+      <div className="fixed inset-0 z-50 flex items-center justify-center px-5
+        pt-[96px] pb-[88px] md:pt-6 md:pb-6">
         <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
 
-        {/* Card — inspired by uiverse form-box: light blue-gray bg, compact, rounded */}
+        {/* Card — compact, light blue-gray bg, fully visible within padded overlay */}
         <div
           className="relative w-full flex flex-col overflow-hidden shadow-2xl"
           style={{
             maxWidth: 320,
-            maxHeight: "min(580px, 80svh)",
+            maxHeight: "100%",
             background: "#f1f7fe",
             borderRadius: 16,
           }}>
 
-          {/* ── Header ── */}
-          <div className="flex-shrink-0 px-6 pt-6 pb-3 flex items-start justify-between">
-            <div className="flex items-center gap-3">
-              <span className="text-2xl">{categoryEmoji[localReceipt.category] ?? "📄"}</span>
-              <div>
-                <p className="text-base font-bold text-gray-900 leading-tight">
+          {/* ── Header — compact ── */}
+          <div className="flex-shrink-0 px-4 py-2.5 flex items-center justify-between border-b border-blue-100">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-base leading-none">{categoryEmoji[localReceipt.category] ?? "📄"}</span>
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-gray-900 truncate leading-tight">
                   {isEditing ? "Edit Receipt" : localReceipt.vendor_name}
                 </p>
                 {!isEditing && (
-                  <p className="text-[11px] text-gray-500 mt-0.5">
+                  <p className="text-[10px] text-gray-400 leading-tight">
                     {localReceipt.category} · {localReceipt.source.replace(/_/g, " ")}
                   </p>
                 )}
@@ -121,8 +122,8 @@ export default function ReceiptDetailModal({
             </div>
             <button
               onClick={onClose}
-              className="w-7 h-7 rounded-full bg-white/70 flex items-center justify-center hover:bg-white transition-colors flex-shrink-0 mt-0.5">
-              <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+              className="w-6 h-6 rounded-full bg-white/70 flex items-center justify-center hover:bg-white transition-colors flex-shrink-0 ml-2">
+              <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
                 <path d="M2 2l8 8M10 2L2 10" stroke="#374151" strokeWidth="1.8" strokeLinecap="round"/>
               </svg>
             </button>
