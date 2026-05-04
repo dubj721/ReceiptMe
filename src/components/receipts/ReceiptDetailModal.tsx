@@ -15,6 +15,17 @@ const sourceLabel: Record<string, string> = {
   manual: "\u270D\uFE0F Manual Entry", email: "\u{1F4E7} Email", concur: "\u2197\uFE0F Concur",
 };
 
+/* Field must live OUTSIDE the modal component so React does not treat it as a
+   new component type on every render — that would unmount inputs and kill focus */
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="bg-gray-50 rounded-xl p-3">
+      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">{label}</p>
+      {children}
+    </div>
+  );
+}
+
 export default function ReceiptDetailModal({
   receipt,
   onClose,
@@ -26,11 +37,15 @@ export default function ReceiptDetailModal({
   onUpdated?: (updated: Partial<Receipt>) => void;
   initialEditing?: boolean;
 }) {
-  const days = daysOld(receipt.transaction_date);
   const [imageFullscreen, setImageFullscreen] = useState(false);
   const [isEditing, setIsEditing] = useState(initialEditing);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  /* localReceipt is what the VIEW mode displays — updated immediately on save
+     so the modal reflects changes without waiting for the parent to re-prop */
+  const [localReceipt, setLocalReceipt] = useState<Receipt>(receipt);
+
   const [draft, setDraft] = useState({
     vendor_name: receipt.vendor_name,
     transaction_date: receipt.transaction_date,
@@ -40,7 +55,8 @@ export default function ReceiptDetailModal({
     notes: receipt.notes ?? "",
   });
 
-  // Lock body scroll while modal is open
+  const days = daysOld(localReceipt.transaction_date);
+
   useEffect(() => {
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = ""; };
@@ -48,7 +64,7 @@ export default function ReceiptDetailModal({
 
   async function saveEdit() {
     setSaving(true);
-    setError(null);
+    setSaveError(null);
     try {
       const payload = {
         vendor_name: draft.vendor_name,
@@ -64,22 +80,19 @@ export default function ReceiptDetailModal({
         body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error(await res.text());
-      onUpdated?.(payload);
+
+      /* Update local view immediately */
+      const updated = { ...localReceipt, ...payload };
+      setLocalReceipt(updated);
       setIsEditing(false);
+
+      /* Notify parent to update the list */
+      onUpdated?.(payload);
     } catch (e: any) {
-      setError(e.message ?? "Save failed");
+      setSaveError(e.message ?? "Save failed");
     } finally {
       setSaving(false);
     }
-  }
-
-  function Field({ label, children }: { label: string; children: React.ReactNode }) {
-    return (
-      <div className="bg-gray-50 rounded-xl p-3">
-        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">{label}</p>
-        {children}
-      </div>
-    );
   }
 
   return (
@@ -93,14 +106,14 @@ export default function ReceiptDetailModal({
           {/* Header */}
           <div className="bg-white border-b border-gray-100 px-5 py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <span className="text-xl">{categoryEmoji[receipt.category] ?? "\u{1F4C4}"}</span>
+              <span className="text-xl">{categoryEmoji[localReceipt.category] ?? "\u{1F4C4}"}</span>
               <div>
                 <p className="text-sm font-bold text-gray-900 leading-tight">
-                  {isEditing ? "Edit Receipt" : receipt.vendor_name}
+                  {isEditing ? "Edit Receipt" : localReceipt.vendor_name}
                 </p>
                 {!isEditing && (
                   <p className="text-[11px] text-gray-400">
-                    {receipt.category} \u00B7 {receipt.source.replace(/_/g, " ")}
+                    {localReceipt.category} \u00B7 {localReceipt.source.replace(/_/g, " ")}
                   </p>
                 )}
               </div>
@@ -122,13 +135,12 @@ export default function ReceiptDetailModal({
             </div>
           </div>
 
-          {/* Body — scrollable only in edit mode */}
+          {/* Body */}
           <div className={isEditing ? "overflow-y-auto" : "overflow-hidden"}
             style={{ maxHeight: "min(460px, calc(88svh - 64px))" }}>
             <div className="px-5 py-4 space-y-3">
 
               {isEditing ? (
-                /* ── Edit form ── */
                 <>
                   <Field label="Vendor / Merchant">
                     <input
@@ -188,13 +200,13 @@ export default function ReceiptDetailModal({
                     />
                   </Field>
 
-                  {error && (
-                    <p className="text-xs text-red-500 text-center">{error}</p>
+                  {saveError && (
+                    <p className="text-xs text-red-500 text-center">{saveError}</p>
                   )}
 
                   <div className="flex gap-3 pt-1 pb-2">
                     <button
-                      onClick={() => { setIsEditing(false); setError(null); }}
+                      onClick={() => { setIsEditing(false); setSaveError(null); }}
                       className="flex-1 py-2.5 rounded-xl bg-gray-100 text-sm font-semibold text-gray-600 hover:bg-gray-200 transition-colors">
                       Cancel
                     </button>
@@ -207,32 +219,29 @@ export default function ReceiptDetailModal({
                   </div>
                 </>
               ) : (
-                /* ── View mode ── */
                 <>
-                  {/* Amount + image side by side */}
                   <div className="flex gap-3">
                     <div className="flex-1 py-4 rounded-2xl bg-gray-50 flex flex-col items-center justify-center">
                       <p className="text-2xl font-bold text-gray-900">
-                        {receipt.currency === "CAD" ? "CA" : ""}${Number(receipt.amount).toFixed(2)}
+                        {localReceipt.currency === "CAD" ? "CA" : ""}${Number(localReceipt.amount).toFixed(2)}
                       </p>
-                      <p className="text-[10px] text-gray-400 mt-0.5">{receipt.currency}</p>
+                      <p className="text-[10px] text-gray-400 mt-0.5">{localReceipt.currency}</p>
                     </div>
-                    {receipt.image_url && (
+                    {localReceipt.image_url && (
                       <button
                         onClick={() => setImageFullscreen(true)}
                         className="w-24 rounded-2xl overflow-hidden border border-gray-100 active:opacity-80 flex-shrink-0">
-                        <img src={receipt.image_url} alt="Receipt" className="w-full h-full object-cover" />
+                        <img src={localReceipt.image_url} alt="Receipt" className="w-full h-full object-cover" />
                       </button>
                     )}
                   </div>
 
-                  {/* 2x2 details grid */}
                   <div className="grid grid-cols-2 gap-2.5">
                     {[
-                      { label: "Date", value: new Date(receipt.transaction_date).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) },
+                      { label: "Date", value: new Date(localReceipt.transaction_date).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) },
                       { label: "Days old", value: days + " days" },
-                      { label: "Category", value: (categoryEmoji[receipt.category] ?? "") + " " + receipt.category },
-                      { label: "Source", value: sourceLabel[receipt.source] ?? receipt.source },
+                      { label: "Category", value: (categoryEmoji[localReceipt.category] ?? "") + " " + localReceipt.category },
+                      { label: "Source", value: sourceLabel[localReceipt.source] ?? localReceipt.source },
                     ].map(({ label, value }) => (
                       <div key={label} className="bg-gray-50 rounded-xl p-3">
                         <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">{label}</p>
@@ -241,23 +250,21 @@ export default function ReceiptDetailModal({
                     ))}
                   </div>
 
-                  {/* Notes */}
-                  {receipt.notes && (
+                  {localReceipt.notes && (
                     <div className="bg-gray-50 rounded-xl p-3">
                       <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Notes</p>
-                      <p className="text-sm text-gray-700">{receipt.notes}</p>
+                      <p className="text-sm text-gray-700">{localReceipt.notes}</p>
                     </div>
                   )}
 
-                  {/* Missing receipt form status */}
-                  {receipt.source === "bank_transaction" && (
-                    <div className={"rounded-xl p-3 " + (receipt.missing_receipt_form?.completed_at ? "bg-green-50 border border-green-200" : "bg-yellow-50 border border-yellow-200")}>
+                  {localReceipt.source === "bank_transaction" && (
+                    <div className={"rounded-xl p-3 " + (localReceipt.missing_receipt_form?.completed_at ? "bg-green-50 border border-green-200" : "bg-yellow-50 border border-yellow-200")}>
                       <p className="text-xs font-bold"
-                        style={{ color: receipt.missing_receipt_form?.completed_at ? "#16a34a" : "#b45309" }}>
-                        {receipt.missing_receipt_form?.completed_at ? "\u2713 Missing Receipt Form Complete" : "\u26A0\uFE0F Missing Receipt Form Needed"}
+                        style={{ color: localReceipt.missing_receipt_form?.completed_at ? "#16a34a" : "#b45309" }}>
+                        {localReceipt.missing_receipt_form?.completed_at ? "\u2713 Missing Receipt Form Complete" : "\u26A0\uFE0F Missing Receipt Form Needed"}
                       </p>
-                      {receipt.missing_receipt_form?.business_purpose && (
-                        <p className="text-[11px] text-gray-600 mt-1">{receipt.missing_receipt_form.business_purpose}</p>
+                      {localReceipt.missing_receipt_form?.business_purpose && (
+                        <p className="text-[11px] text-gray-600 mt-1">{localReceipt.missing_receipt_form.business_purpose}</p>
                       )}
                     </div>
                   )}
@@ -268,8 +275,7 @@ export default function ReceiptDetailModal({
         </div>
       </div>
 
-      {/* Fullscreen image overlay */}
-      {imageFullscreen && receipt.image_url && (
+      {imageFullscreen && localReceipt.image_url && (
         <div
           className="fixed inset-0 z-[60] bg-black flex items-center justify-center"
           onClick={() => setImageFullscreen(false)}>
@@ -281,7 +287,7 @@ export default function ReceiptDetailModal({
             </svg>
           </button>
           <img
-            src={receipt.image_url}
+            src={localReceipt.image_url}
             alt="Receipt fullscreen"
             className="max-w-full max-h-full object-contain p-4"
           />
