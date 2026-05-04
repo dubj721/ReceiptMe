@@ -12,7 +12,14 @@ const titles: Record<string, string> = {
   "/archive": "Overdue Archive",
 };
 
-export default function TopBar({ profile }: { profile: User | null }) {
+const ADMIN_ICON = (
+  <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+    <rect x="1.5" y="1.5" width="12" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.3"/>
+    <path d="M5 13.5h5M7.5 10.5v3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+  </svg>
+);
+
+export default function TopBar({ profile }: { profile: (User & { is_admin?: boolean }) | null }) {
   const pathname = usePathname();
   const router   = useRouter();
   const title    = titles[pathname] ?? "Receipt Manager";
@@ -65,6 +72,14 @@ export default function TopBar({ profile }: { profile: User | null }) {
                   </svg>
                   Account Settings
                 </button>
+                {profile?.is_admin && (
+                  <button
+                    onClick={() => { setOpen(false); router.push("/admin"); }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-brand-navy hover:bg-blue-50 transition-colors border-t border-gray-100">
+                    <span className="text-brand-navy">{ADMIN_ICON}</span>
+                    Switch to Admin View
+                  </button>
+                )}
                 <button
                   onClick={signOut}
                   className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-500 hover:bg-red-50 transition-colors border-t border-gray-100">

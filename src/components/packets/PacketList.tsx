@@ -6,6 +6,7 @@ import { daysOld, isPolicyApplicable } from "@/types";
 import type { Receipt, Packet } from "@/types";
 import MissingReceiptSheet from "@/components/receipts/MissingReceiptSheet";
 import ReceiptDetailModal from "@/components/receipts/ReceiptDetailModal";
+import { trackEvent } from "@/lib/track";
 
 /* ─── Days badge ─────────────────────────────────────────── */
 function DaysBadge({ days, country }: { days: number; country: string }) {
@@ -456,6 +457,7 @@ export default function PacketList({
   async function handleDelete(receiptId: string) {
     const res = await fetch(`/api/receipts/${receiptId}`, { method: "DELETE" });
     if (res.ok) {
+      trackEvent("receipt_deleted", { receipt_id: receiptId });
       setLocalPackets(prev =>
         prev.map(p => ({ ...p, receipts: p.receipts.filter(r => r.id !== receiptId) }))
           .filter(p => p.receipts.length > 0)
@@ -543,7 +545,7 @@ export default function PacketList({
                 )}
                 <button
                   disabled={!canExport}
-                  onClick={() => canExport && exportPDF(packet, userName)}
+                  onClick={() => { if (canExport) { exportPDF(packet, userName); trackEvent("pdf_exported", { packet_id: packet.id, receipt_count: receipts.length }); } }}
                   className={`px-5 py-2 rounded-xl text-xs font-bold transition-all
                     ${canExport ? "bg-brand-cyan text-brand-navy hover:opacity-90" : "bg-gray-100 text-gray-400 cursor-not-allowed"}`}>
                   Export PDF

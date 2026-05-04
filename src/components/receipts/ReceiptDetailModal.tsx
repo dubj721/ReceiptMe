@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { daysOld } from "@/types";
 import type { Receipt, ReceiptCategory } from "@/types";
+import { trackEvent } from "@/lib/track";
 
 const CATEGORIES: ReceiptCategory[] = ["meals", "lodging", "transit", "other"];
 const CURRENCIES = ["USD", "CAD"];
@@ -86,7 +87,8 @@ export default function ReceiptDetailModal({
       setLocalReceipt(updated);
       setIsEditing(false);
 
-      /* Notify parent to update the list */
+      /* Track + notify parent */
+      trackEvent("receipt_edited", { receipt_id: receipt.id });
       onUpdated?.(payload);
     } catch (e: any) {
       setSaveError(e.message ?? "Save failed");

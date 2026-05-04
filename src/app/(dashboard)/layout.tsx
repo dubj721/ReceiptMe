@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import BottomNav from "@/components/ui/BottomNav";
 import Sidebar from "@/components/ui/Sidebar";
 import TopBar from "@/components/ui/TopBar";
+import FeedbackWidget from "@/components/ui/FeedbackWidget";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -39,6 +40,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <div className="md:hidden fixed bottom-0 left-0 right-0 z-40">
           <BottomNav />
         </div>
+
+        {/* Feedback widget — floats above bottom nav */}
+        <FeedbackWidget />
       </div>
     </div>
   );
