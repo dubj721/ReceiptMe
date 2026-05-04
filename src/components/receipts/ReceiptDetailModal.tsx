@@ -89,12 +89,12 @@ export default function ReceiptDetailModal({
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
+      <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center pt-[60px] md:pt-0">
         <div
           className="absolute inset-0 bg-black/40 backdrop-blur-sm"
           onClick={isEditing ? undefined : onClose}
         />
-        <div className="relative bg-white w-full max-w-md rounded-t-3xl md:rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+        <div className="relative bg-white w-full max-w-md rounded-t-3xl md:rounded-3xl shadow-2xl overflow-hidden max-h-[85svh] md:max-h-[90vh] flex flex-col">
 
           {/* Header */}
           <div className="sticky top-0 bg-white border-b border-gray-100 px-5 py-4 flex items-center justify-between flex-shrink-0">

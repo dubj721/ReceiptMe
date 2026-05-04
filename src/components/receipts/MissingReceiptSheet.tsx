@@ -71,7 +71,7 @@ export default function MissingReceiptSheet({ receipt, open, onClose, onSaved }:
     <>
       {/* Backdrop */}
       <div
-        className={`fixed inset-0 bg-black/40 z-40 transition-opacity duration-300
+        className={`fixed inset-0 bg-black/40 z-40 pt-[60px] md:pt-0 transition-opacity duration-300
           ${open ? "opacity-100" : "opacity-0 pointer-events-none"}`}
         onClick={onClose}
       />
@@ -79,7 +79,7 @@ export default function MissingReceiptSheet({ receipt, open, onClose, onSaved }:
       {/* Sheet */}
       <div
         className={`fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-3xl shadow-2xl
-                    transition-transform duration-300 ease-out max-h-[92vh] overflow-y-auto
+                    transition-transform duration-300 ease-out max-h-[85svh] md:max-h-[92vh] overflow-y-auto
           ${open ? "translate-y-0" : "translate-y-full"}`}
       >
         {/* Pull handle */}
