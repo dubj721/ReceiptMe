@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { daysOld } from "@/types";
 import type { Receipt, ReceiptCategory } from "@/types";
 import { trackEvent } from "@/lib/track";
@@ -56,6 +56,13 @@ export default function ReceiptDetailModal({
 
   const days = daysOld(localReceipt.transaction_date);
 
+  // Lock background scroll while modal is open
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
   async function saveEdit() {
     setSaving(true);
     setSaveError(null);
@@ -90,10 +97,14 @@ export default function ReceiptDetailModal({
 
   return (
     <>
-      {/* Overlay — inset from app header (top) and bottom nav, centered in usable space */}
+      {/* Overlay — inset from app header and bottom nav, background scroll blocked */}
       <div className="fixed inset-0 z-50 flex items-center justify-center px-6
-                      pt-[72px] pb-[86px] md:pt-6 md:pb-6">
-        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+                      pt-[92px] pb-[88px] md:pt-6 md:pb-6">
+        <div
+          className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+          onClick={onClose}
+          onTouchMove={e => e.preventDefault()}
+        />
 
         {/* Card — fills constrained overlay, never bleeds under nav */}
         <div
@@ -132,7 +143,7 @@ export default function ReceiptDetailModal({
           {/* ── Scrollable body ── */}
           <div
             className="flex-1 overflow-y-auto min-h-0 px-4 pb-4 space-y-3"
-            style={{ WebkitOverflowScrolling: "touch" } as React.CSSProperties}>
+            style={{ WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" } as React.CSSProperties}>
 
             {isEditing ? (
               /* Edit mode — inputs in white stacked-card containers */
