@@ -90,16 +90,17 @@ export default function ReceiptDetailModal({
 
   return (
     <>
-      {/* Overlay — centered on the full screen */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center px-5">
+      {/* Overlay — inset from app header (top) and bottom nav, centered in usable space */}
+      <div className="fixed inset-0 z-50 flex items-center justify-center px-6
+                      pt-[72px] pb-[86px] md:pt-6 md:pb-6">
         <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
 
-        {/* Card — compact, light blue-gray bg, fully visible within padded overlay */}
+        {/* Card — fills constrained overlay, never bleeds under nav */}
         <div
           className="relative w-full flex flex-col overflow-hidden shadow-2xl"
           style={{
-            maxWidth: 320,
-            maxHeight: "min(560px, 80svh)",
+            maxWidth: 340,
+            maxHeight: "100%",
             background: "#f1f7fe",
             borderRadius: 16,
           }}>
