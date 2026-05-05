@@ -86,26 +86,15 @@ export default async function HomePage() {
 
           {/* ── HERO CARD ──────────────────────────────────────────────────── */}
           <div
-            className="rounded-3xl p-5 relative overflow-hidden"
+            className="rounded-3xl p-5"
             style={{
-              background: "linear-gradient(140deg, #0d3f5f 0%, #0a5a82 45%, #077fa8 100%)",
-              boxShadow: "0 8px 32px rgba(0, 130, 180, 0.45), 0 2px 8px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.12)",
+              background: [
+                "radial-gradient(circle at 92% 8%,  rgba(0,214,242,0.28) 0%, transparent 38%)",
+                "radial-gradient(circle at 8%  92%,  rgba(0,214,242,0.10) 0%, transparent 35%)",
+                "linear-gradient(140deg, #0d3f5f 0%, #0a5a82 45%, #077fa8 100%)",
+              ].join(", "),
+              boxShadow: "0 8px 32px rgba(0,130,180,0.45), 0 2px 8px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.12)",
             }}>
-
-            {/* Top-right cyan glow */}
-            <div className="absolute top-0 right-0 w-52 h-52 pointer-events-none" style={{
-              background: "radial-gradient(circle, rgba(0,214,242,0.28) 0%, transparent 65%)",
-              transform: "translate(40%, -40%)",
-            }} />
-            {/* Bottom-left secondary glow */}
-            <div className="absolute bottom-0 left-0 w-36 h-36 pointer-events-none" style={{
-              background: "radial-gradient(circle, rgba(0,214,242,0.12) 0%, transparent 70%)",
-              transform: "translate(-30%, 30%)",
-            }} />
-            {/* Shimmer line across top */}
-            <div className="absolute top-0 left-0 right-0 h-px" style={{
-              background: "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.25) 50%, transparent 100%)",
-            }} />
 
             {/* Month label */}
             <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: "#00D6F2" }}>

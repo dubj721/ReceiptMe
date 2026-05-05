@@ -58,13 +58,12 @@ export default function BottomNav() {
   return (
     <>
       <div
-        className="px-4 pb-6 pt-2"
+        className="px-4 pt-2"
         style={{
-          background: "rgba(0, 22, 38, 0.82)",
+          background: "rgba(2, 12, 21, 0.97)",
           borderTop: "1px solid rgba(255,255,255,0.08)",
-          backdropFilter: "blur(16px)",
-          WebkitBackdropFilter: "blur(16px)",
-        } as React.CSSProperties}>
+          paddingBottom: "max(24px, env(safe-area-inset-bottom, 24px))",
+        }}>
         <div className="flex items-end justify-around">
 
           {/* Home */}
