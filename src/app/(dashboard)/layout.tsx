@@ -29,8 +29,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <Sidebar profile={profile} />
       </div>
 
-      {/* Main content */}
-      <div className="flex-1 flex flex-col min-h-0">
+      {/* Main content — min-w-0 is critical: flex items in a row default to
+          min-width:auto which lets them grow past 100vw. min-w-0 caps it. */}
+      <div className="flex-1 flex flex-col min-h-0 min-w-0">
         {/* Mobile top bar */}
         <div className="md:hidden flex-shrink-0">
           <TopBar profile={profile} />
