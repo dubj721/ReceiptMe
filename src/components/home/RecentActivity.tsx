@@ -18,13 +18,32 @@ function TrashIcon() {
   );
 }
 
+function PencilIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+      <path d="M11 2l3 3L5 14H2v-3L11 2z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
 export default function RecentActivity({ receipts, country }: {
   receipts: Receipt[];
   country: string;
 }) {
-  const [detail,     setDetail]     = useState<Receipt | null>(null);
-  const [confirming, setConfirming] = useState<string | null>(null); // receipt id
-  const [local,      setLocal]      = useState(receipts);
+  const [detail,      setDetail]      = useState<Receipt | null>(null);
+  const [editMode,    setEditMode]    = useState(false);
+  const [confirming,  setConfirming]  = useState<string | null>(null);
+  const [local,       setLocal]       = useState(receipts);
+
+  function openView(r: Receipt) {
+    setEditMode(false);
+    setDetail(r);
+  }
+
+  function openEdit(r: Receipt) {
+    setEditMode(true);
+    setDetail(r);
+  }
 
   async function handleDelete(id: string) {
     const res = await fetch(`/api/receipts/${id}`, { method: "DELETE" });
@@ -44,7 +63,7 @@ export default function RecentActivity({ receipts, country }: {
 
           return (
             <div key={r.id}>
-              {/* Inline delete confirmation */}
+              {/* Delete confirmation */}
               {confirming === r.id && (
                 <div className="mb-1 px-4 py-2.5 rounded-2xl bg-red-50 border border-red-200 flex items-center justify-between gap-3">
                   <p className="text-xs font-semibold text-red-700">Delete this receipt?</p>
@@ -67,9 +86,9 @@ export default function RecentActivity({ receipts, country }: {
               <div className={`group card flex items-center gap-3 transition-all
                 ${warn ? "border-yellow-200 bg-yellow-50/30" : "hover:border-brand-cyan/40"}`}>
 
-                {/* Clickable area — opens detail */}
+                {/* Tap to view */}
                 <button
-                  onClick={() => setDetail(r)}
+                  onClick={() => openView(r)}
                   className="flex items-center gap-3 flex-1 min-w-0 text-left">
                   <div className="w-9 h-9 rounded-xl bg-gray-50 flex items-center justify-center flex-shrink-0 text-lg">
                     {categoryEmoji[r.category] ?? "📄"}
@@ -86,7 +105,16 @@ export default function RecentActivity({ receipts, country }: {
                   </p>
                 </button>
 
-                {/* Delete button — always visible on mobile, hover on desktop */}
+                {/* Edit button — matches Packets desktop hover behaviour */}
+                <button
+                  onClick={e => { e.stopPropagation(); openEdit(r); }}
+                  className="flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-gray-300
+                    hover:bg-brand-cyan/10 hover:text-brand-cyan transition-all
+                    md:opacity-0 md:group-hover:opacity-100">
+                  <PencilIcon />
+                </button>
+
+                {/* Delete button */}
                 <button
                   onClick={() => setConfirming(confirming === r.id ? null : r.id)}
                   className="flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-gray-300
@@ -101,7 +129,15 @@ export default function RecentActivity({ receipts, country }: {
       </div>
 
       {detail && (
-        <ReceiptDetailModal receipt={detail} onClose={() => setDetail(null)} />
+        <ReceiptDetailModal
+          receipt={detail}
+          onClose={() => { setDetail(null); setEditMode(false); }}
+          initialEditing={editMode}
+          onUpdated={updated => {
+            setLocal(prev => prev.map(r => r.id === detail.id ? { ...r, ...updated } as Receipt : r));
+            setDetail(prev => prev ? { ...prev, ...updated } as Receipt : null);
+          }}
+        />
       )}
     </>
   );

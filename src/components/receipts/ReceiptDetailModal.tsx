@@ -16,12 +16,20 @@ const sourceLabel: Record<string, string> = {
   manual: "✍️ Manual Entry", email: "📧 Email", concur: "↗️ Concur",
 };
 
-/* Field must live OUTSIDE the modal component — prevents React from treating it
-   as a new component type on each render, which would unmount inputs and kill focus */
-function Field({ label, children, last = false }: { label: string; children: React.ReactNode; last?: boolean }) {
+/*
+  Field lives OUTSIDE the modal — if defined inside, React creates a new
+  component type every render, unmounting inputs and killing keyboard focus.
+*/
+function Field({ label, children, last = false }: {
+  label: string;
+  children: React.ReactNode;
+  last?: boolean;
+}) {
   return (
-    <div className={`px-4 py-2.5 ${!last ? "border-b border-gray-100" : ""}`}>
-      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">{label}</p>
+    <div className={`px-4 py-3 ${!last ? "border-b border-gray-100" : ""}`}>
+      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">
+        {label}
+      </p>
       {children}
     </div>
   );
@@ -42,8 +50,7 @@ export default function ReceiptDetailModal({
   const [isEditing, setIsEditing]             = useState(initialEditing);
   const [saving, setSaving]                   = useState(false);
   const [saveError, setSaveError]             = useState<string | null>(null);
-
-  const [localReceipt, setLocalReceipt] = useState<Receipt>(receipt);
+  const [localReceipt, setLocalReceipt]       = useState<Receipt>(receipt);
 
   const [draft, setDraft] = useState({
     vendor_name:      receipt.vendor_name,
@@ -56,11 +63,21 @@ export default function ReceiptDetailModal({
 
   const days = daysOld(localReceipt.transaction_date);
 
-  // Lock background scroll while modal is open
+  /* Freeze every scrollable element on the page while the modal is open */
   useEffect(() => {
-    const prev = document.body.style.overflow;
+    // Lock body
+    const prevBody = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = prev; };
+
+    // Lock the main scroll container (the .scroll-area in dashboard layout)
+    const main = document.querySelector("main");
+    const prevMain = main ? (main as HTMLElement).style.overflow : "";
+    if (main) (main as HTMLElement).style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = prevBody;
+      if (main) (main as HTMLElement).style.overflow = prevMain;
+    };
   }, []);
 
   async function saveEdit() {
@@ -85,7 +102,6 @@ export default function ReceiptDetailModal({
       const updated = { ...localReceipt, ...payload };
       setLocalReceipt(updated);
       setIsEditing(false);
-
       trackEvent("receipt_edited", { receipt_id: receipt.id });
       onUpdated?.(payload);
     } catch (e: any) {
@@ -97,35 +113,51 @@ export default function ReceiptDetailModal({
 
   return (
     <>
-      {/* Overlay — inset from app header and bottom nav, background scroll blocked */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center px-6
-                      pt-[92px] pb-[88px] md:pt-6 md:pb-6">
+      {/*
+        ── MODAL OVERLAY ──────────────────────────────────────────────────────
+        z-[100] sits above the app header (no z-index), bottom nav (z-40),
+        and feedback widget. Truly centered on the full viewport.
+      */}
+      <div
+        className="fixed inset-0 z-[100] flex items-center justify-center"
+        style={{ padding: "20px" }}>
+
+        {/* Blurred backdrop — covers header, nav, everything */}
         <div
-          className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+          className="absolute inset-0 bg-black/50 backdrop-blur-md"
           onClick={onClose}
-          onTouchMove={e => e.preventDefault()}
+          style={{ touchAction: "none" }}
         />
 
-        {/* Card — fills constrained overlay, never bleeds under nav */}
+        {/*
+          ── CARD ──────────────────────────────────────────────────────────────
+          Fixed width, max-height so it's always fully visible.
+          Flex column: header (fixed) + body (scrolls) + footer (fixed).
+        */}
         <div
-          className="relative w-full flex flex-col overflow-hidden shadow-2xl"
+          className="relative w-full flex flex-col shadow-2xl"
           style={{
-            maxWidth: 340,
-            maxHeight: "100%",
+            maxWidth:  340,
+            maxHeight: "78svh",
             background: "#f1f7fe",
-            borderRadius: 16,
+            borderRadius: 18,
+            overflow: "hidden",
           }}>
 
-          {/* ── Header — compact ── */}
-          <div className="flex-shrink-0 px-4 py-2.5 flex items-center justify-between border-b border-blue-100">
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="text-base leading-none">{categoryEmoji[localReceipt.category] ?? "📄"}</span>
+          {/* Header */}
+          <div
+            className="flex-shrink-0 flex items-center justify-between px-4 py-3"
+            style={{ borderBottom: "1px solid #dbeafe" }}>
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className="text-lg leading-none flex-shrink-0">
+                {categoryEmoji[localReceipt.category] ?? "📄"}
+              </span>
               <div className="min-w-0">
-                <p className="text-sm font-bold text-gray-900 truncate leading-tight">
+                <p className="text-sm font-bold text-gray-900 truncate leading-snug">
                   {isEditing ? "Edit Receipt" : localReceipt.vendor_name}
                 </p>
                 {!isEditing && (
-                  <p className="text-[10px] text-gray-400 leading-tight">
+                  <p className="text-[11px] text-gray-400 leading-none mt-0.5">
                     {localReceipt.category} · {localReceipt.source.replace(/_/g, " ")}
                   </p>
                 )}
@@ -133,26 +165,30 @@ export default function ReceiptDetailModal({
             </div>
             <button
               onClick={onClose}
-              className="w-6 h-6 rounded-full bg-white/70 flex items-center justify-center hover:bg-white transition-colors flex-shrink-0 ml-2">
-              <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
-                <path d="M2 2l8 8M10 2L2 10" stroke="#374151" strokeWidth="1.8" strokeLinecap="round"/>
+              className="flex-shrink-0 ml-3 w-7 h-7 rounded-full flex items-center justify-center transition-colors"
+              style={{ background: "rgba(255,255,255,0.7)" }}>
+              <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+                <path d="M2 2l8 8M10 2L2 10" stroke="#374151" strokeWidth="2" strokeLinecap="round"/>
               </svg>
             </button>
           </div>
 
-          {/* ── Scrollable body ── */}
+          {/* Scrollable body */}
           <div
-            className="flex-1 overflow-y-auto min-h-0 px-4 pb-4 space-y-3"
-            style={{ WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" } as React.CSSProperties}>
+            className="flex-1 min-h-0 overflow-y-auto"
+            style={{
+              WebkitOverflowScrolling: "touch",
+              overscrollBehavior: "contain",
+              padding: "12px 12px 8px",
+            } as React.CSSProperties}>
 
             {isEditing ? (
-              /* Edit mode — inputs in white stacked-card containers */
-              <>
+              <div className="space-y-3">
                 {/* Vendor */}
-                <div className="bg-white rounded-lg overflow-hidden">
+                <div className="bg-white rounded-xl overflow-hidden">
                   <Field label="Vendor / Merchant" last>
                     <input
-                      className="w-full bg-transparent text-sm font-semibold text-gray-800 outline-none pb-0.5"
+                      className="w-full bg-transparent text-sm font-semibold text-gray-800 outline-none"
                       value={draft.vendor_name}
                       onChange={e => setDraft(d => ({ ...d, vendor_name: e.target.value }))}
                     />
@@ -160,20 +196,18 @@ export default function ReceiptDetailModal({
                 </div>
 
                 {/* Amount + Currency */}
-                <div className="bg-white rounded-lg overflow-hidden">
+                <div className="bg-white rounded-xl overflow-hidden">
                   <Field label="Amount">
                     <input
-                      type="number"
-                      inputMode="decimal"
-                      step="0.01"
-                      className="w-full bg-transparent text-sm font-semibold text-gray-800 outline-none pb-0.5"
+                      type="number" inputMode="decimal" step="0.01"
+                      className="w-full bg-transparent text-sm font-semibold text-gray-800 outline-none"
                       value={draft.amount}
                       onChange={e => setDraft(d => ({ ...d, amount: e.target.value }))}
                     />
                   </Field>
                   <Field label="Currency" last>
                     <select
-                      className="w-full bg-transparent text-sm font-semibold text-gray-800 outline-none pb-0.5"
+                      className="w-full bg-transparent text-sm font-semibold text-gray-800 outline-none"
                       value={draft.currency}
                       onChange={e => setDraft(d => ({ ...d, currency: e.target.value }))}>
                       {CURRENCIES.map(c => <option key={c}>{c}</option>)}
@@ -182,18 +216,18 @@ export default function ReceiptDetailModal({
                 </div>
 
                 {/* Date + Category */}
-                <div className="bg-white rounded-lg overflow-hidden">
+                <div className="bg-white rounded-xl overflow-hidden">
                   <Field label="Date">
                     <input
                       type="date"
-                      className="w-full bg-transparent text-sm font-semibold text-gray-800 outline-none pb-0.5"
+                      className="w-full bg-transparent text-sm font-semibold text-gray-800 outline-none"
                       value={draft.transaction_date}
                       onChange={e => setDraft(d => ({ ...d, transaction_date: e.target.value }))}
                     />
                   </Field>
                   <Field label="Category" last>
                     <select
-                      className="w-full bg-transparent text-sm font-semibold text-gray-800 outline-none pb-0.5"
+                      className="w-full bg-transparent text-sm font-semibold text-gray-800 outline-none"
                       value={draft.category}
                       onChange={e => setDraft(d => ({ ...d, category: e.target.value as ReceiptCategory }))}>
                       {CATEGORIES.map(c => (
@@ -204,10 +238,10 @@ export default function ReceiptDetailModal({
                 </div>
 
                 {/* Notes */}
-                <div className="bg-white rounded-lg overflow-hidden">
+                <div className="bg-white rounded-xl overflow-hidden">
                   <Field label="Notes" last>
                     <textarea
-                      rows={2}
+                      rows={3}
                       className="w-full bg-transparent text-sm text-gray-800 outline-none resize-none"
                       value={draft.notes}
                       onChange={e => setDraft(d => ({ ...d, notes: e.target.value }))}
@@ -216,15 +250,15 @@ export default function ReceiptDetailModal({
                 </div>
 
                 {saveError && (
-                  <p className="text-xs text-red-500 text-center px-2">{saveError}</p>
+                  <p className="text-xs text-red-500 text-center">{saveError}</p>
                 )}
-              </>
+              </div>
             ) : (
-              /* View mode */
-              <>
-                {/* Amount + Image */}
-                <div className="flex gap-3">
-                  <div className="flex-1 py-5 rounded-xl bg-white flex flex-col items-center justify-center">
+              <div className="space-y-3">
+                {/* Amount + receipt image */}
+                <div className="flex gap-2.5">
+                  <div
+                    className="flex-1 rounded-xl bg-white flex flex-col items-center justify-center py-4">
                     <p className="text-2xl font-bold text-gray-900">
                       {localReceipt.currency === "CAD" ? "CA" : ""}${Number(localReceipt.amount).toFixed(2)}
                     </p>
@@ -233,18 +267,23 @@ export default function ReceiptDetailModal({
                   {localReceipt.image_url && (
                     <button
                       onClick={() => setImageFullscreen(true)}
-                      className="w-24 rounded-xl overflow-hidden border border-white active:opacity-80 flex-shrink-0">
-                      <img src={localReceipt.image_url} alt="Receipt" className="w-full h-full object-cover" />
+                      className="w-24 rounded-xl overflow-hidden flex-shrink-0 active:opacity-80"
+                      style={{ border: "2px solid white" }}>
+                      <img
+                        src={localReceipt.image_url}
+                        alt="Receipt"
+                        className="w-full h-full object-cover"
+                      />
                     </button>
                   )}
                 </div>
 
-                {/* Info grid */}
-                <div className="bg-white rounded-lg overflow-hidden">
+                {/* Info fields */}
+                <div className="bg-white rounded-xl overflow-hidden">
                   {[
                     { label: "Date",     value: new Date(localReceipt.transaction_date).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) },
-                    { label: "Days old", value: days + " days" },
-                    { label: "Category", value: (categoryEmoji[localReceipt.category] ?? "") + " " + localReceipt.category },
+                    { label: "Days Old", value: `${days} days` },
+                    { label: "Category", value: `${categoryEmoji[localReceipt.category] ?? ""} ${localReceipt.category}` },
                     { label: "Source",   value: sourceLabel[localReceipt.source] ?? localReceipt.source },
                   ].map(({ label, value }, i, arr) => (
                     <Field key={label} label={label} last={i === arr.length - 1}>
@@ -255,58 +294,63 @@ export default function ReceiptDetailModal({
 
                 {/* Notes */}
                 {localReceipt.notes && (
-                  <div className="bg-white rounded-lg overflow-hidden">
+                  <div className="bg-white rounded-xl overflow-hidden">
                     <Field label="Notes" last>
                       <p className="text-sm text-gray-700">{localReceipt.notes}</p>
                     </Field>
                   </div>
                 )}
 
-                {/* Missing receipt form status */}
+                {/* Missing receipt form */}
                 {localReceipt.source === "bank_transaction" && (
-                  <div className={"rounded-lg p-3 " + (localReceipt.missing_receipt_form?.completed_at
-                    ? "bg-green-50 border border-green-200"
-                    : "bg-yellow-50 border border-yellow-200")}>
-                    <p className="text-xs font-bold"
-                      style={{ color: localReceipt.missing_receipt_form?.completed_at ? "#16a34a" : "#b45309" }}>
+                  <div className={`rounded-xl p-3 ${
+                    localReceipt.missing_receipt_form?.completed_at
+                      ? "bg-green-50 border border-green-200"
+                      : "bg-yellow-50 border border-yellow-200"
+                  }`}>
+                    <p className="text-xs font-bold" style={{
+                      color: localReceipt.missing_receipt_form?.completed_at ? "#16a34a" : "#b45309"
+                    }}>
                       {localReceipt.missing_receipt_form?.completed_at
                         ? "✓ Missing Receipt Form Complete"
                         : "⚠️ Missing Receipt Form Needed"}
                     </p>
                     {localReceipt.missing_receipt_form?.business_purpose && (
-                      <p className="text-[11px] text-gray-600 mt-1">{localReceipt.missing_receipt_form.business_purpose}</p>
+                      <p className="text-[11px] text-gray-600 mt-1">
+                        {localReceipt.missing_receipt_form.business_purpose}
+                      </p>
                     )}
                   </div>
                 )}
-              </>
+              </div>
             )}
           </div>
 
-          {/* ── Footer — matches uiverse .form-section style ── */}
+          {/* Footer — always visible */}
           <div
-            className="flex-shrink-0 px-4 py-4 flex gap-3"
-            style={{ background: "#e0ecfb" }}>
+            className="flex-shrink-0 flex gap-3 px-4 py-3"
+            style={{ background: "#dbeafe" }}>
             {isEditing ? (
               <>
                 <button
                   onClick={() => { setIsEditing(false); setSaveError(null); }}
-                  className="flex-1 py-2.5 text-sm font-semibold text-gray-600 bg-white/70 hover:bg-white transition-colors"
-                  style={{ borderRadius: 24 }}>
+                  className="flex-1 py-2.5 text-sm font-semibold text-gray-600 rounded-full transition-colors"
+                  style={{ background: "rgba(255,255,255,0.7)" }}>
                   Cancel
                 </button>
                 <button
                   onClick={saveEdit}
                   disabled={saving}
-                  className="flex-1 py-2.5 text-sm font-bold text-white disabled:opacity-50 transition-opacity"
-                  style={{ borderRadius: 24, background: "#00283C" }}>
-                  {saving ? "Saving..." : "Save Changes"}
+                  className="flex-1 py-2.5 text-sm font-bold text-white rounded-full transition-opacity disabled:opacity-50"
+                  style={{ background: "#00283C" }}>
+                  {saving ? "Saving…" : "Save Changes"}
                 </button>
               </>
             ) : (
               <button
                 onClick={() => setIsEditing(true)}
-                className="flex-1 py-2.5 text-sm font-bold text-white transition-opacity hover:opacity-90"
-                style={{ borderRadius: 24, background: "#00283C" }}>
+                className="flex-1 py-2.5 text-sm font-bold text-white rounded-full hover:opacity-90 transition-opacity"
+                style={{ background: "#00283C" }}>
                 Edit Receipt
               </button>
             )}
@@ -314,21 +358,31 @@ export default function ReceiptDetailModal({
         </div>
       </div>
 
-      {/* Fullscreen image */}
+      {/*
+        ── FULLSCREEN IMAGE ───────────────────────────────────────────────────
+        z-[110] — above the modal overlay.
+        onTouchEnd + preventDefault cancels the iOS ghost-click that would
+        otherwise land on the modal backdrop after the fullscreen closes.
+      */}
       {imageFullscreen && localReceipt.image_url && (
         <div
-          className="fixed inset-0 z-[60] bg-black flex items-center justify-center"
+          className="fixed inset-0 z-[110] bg-black flex items-center justify-center"
           onClick={() => setImageFullscreen(false)}
           onTouchEnd={e => { e.preventDefault(); setImageFullscreen(false); }}>
           <button
             onClick={e => { e.stopPropagation(); setImageFullscreen(false); }}
             onTouchEnd={e => { e.stopPropagation(); e.preventDefault(); setImageFullscreen(false); }}
-            className="absolute top-12 right-4 w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+            className="absolute w-10 h-10 rounded-full bg-white/20 flex items-center justify-center"
+            style={{ top: "max(48px, env(safe-area-inset-top, 48px))", right: 16 }}>
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <path d="M2 2l10 10M12 2L2 12" stroke="white" strokeWidth="2" strokeLinecap="round"/>
             </svg>
           </button>
-          <img src={localReceipt.image_url} alt="Receipt fullscreen" className="max-w-full max-h-full object-contain p-4" />
+          <img
+            src={localReceipt.image_url}
+            alt="Receipt"
+            className="max-w-full max-h-full object-contain p-4"
+          />
         </div>
       )}
     </>
