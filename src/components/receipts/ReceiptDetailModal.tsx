@@ -318,9 +318,11 @@ export default function ReceiptDetailModal({
       {imageFullscreen && localReceipt.image_url && (
         <div
           className="fixed inset-0 z-[60] bg-black flex items-center justify-center"
-          onClick={() => setImageFullscreen(false)}>
+          onClick={() => setImageFullscreen(false)}
+          onTouchEnd={e => { e.preventDefault(); setImageFullscreen(false); }}>
           <button
-            onClick={() => setImageFullscreen(false)}
+            onClick={e => { e.stopPropagation(); setImageFullscreen(false); }}
+            onTouchEnd={e => { e.stopPropagation(); e.preventDefault(); setImageFullscreen(false); }}
             className="absolute top-12 right-4 w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <path d="M2 2l10 10M12 2L2 12" stroke="white" strokeWidth="2" strokeLinecap="round"/>
