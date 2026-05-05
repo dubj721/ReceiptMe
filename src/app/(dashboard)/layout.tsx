@@ -40,8 +40,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
           {children}
         </main>
 
-        {/* Mobile bottom nav */}
-        <div className="md:hidden fixed bottom-0 left-0 right-0 z-40">
+        {/* Mobile bottom nav — overflow:visible so the floating FAB can paint above */}
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-40" style={{ overflow: "visible" }}>
           <BottomNav />
         </div>
 

@@ -89,7 +89,9 @@ export default function RecentActivity({ receipts, country }: {
                   background: "rgba(245,158,11,0.1)",
                   borderColor: "rgba(245,158,11,0.28)",
                 } : {
-                  boxShadow: "0 2px 12px rgba(0,0,0,0.25)",
+                  background: "rgba(6,22,36,0.9)",
+                  borderColor: "rgba(255,255,255,0.07)",
+                  boxShadow: "0 2px 12px rgba(0,0,0,0.3)",
                 }}>
 
                 {/* Tap to view */}
