@@ -25,8 +25,9 @@ html, body {
 
   /* Scrollable content area */
   .scroll-area {
-    overflow-x: hidden;          /* critical — prevents compositing bleed */
+    overflow-x: hidden;
     overflow-y: auto;
+    max-width: 100%;             /* children cannot exceed viewport width */
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-y: contain;
   }
@@ -70,6 +71,8 @@ html, body {
   .card {
     box-sizing: border-box;
     width: 100%;
+    max-width: 100%;
+    overflow: hidden;
     background: rgba(6, 28, 46, 0.82);
     border-radius: 16px;
     border: 1px solid rgba(0, 214, 242, 0.15);
@@ -79,6 +82,8 @@ html, body {
   .card-elevated {
     box-sizing: border-box;
     width: 100%;
+    max-width: 100%;
+    overflow: hidden;
     background: rgba(8, 34, 54, 0.9);
     border-radius: 20px;
     border: 1px solid rgba(0, 214, 242, 0.2);

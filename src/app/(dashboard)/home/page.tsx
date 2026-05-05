@@ -5,7 +5,6 @@ import Link from "next/link";
 import RecentActivity from "@/components/home/RecentActivity";
 import Greeting from "@/components/home/Greeting";
 
-// ── Page ───────────────────────────────────────────────────────────────────────
 export default async function HomePage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -47,118 +46,131 @@ export default async function HomePage() {
   const [dollars, cents] = totalFixed.split(".");
 
   return (
-    <div className="px-4 pt-3 pb-8 max-w-lg mx-auto">
+    /*
+      w-full + box-sizing keeps this div exactly viewport-width minus any parent
+      padding — nothing can bleed out to the right.
+    */
+    <div className="w-full px-4 pt-3 pb-8" style={{ boxSizing: "border-box" }}>
 
       {/* Greeting */}
-      <div className="mb-4">
+      <div className="w-full mb-4">
         <Greeting firstName={firstName} />
       </div>
 
-      <div className="space-y-3">
+      <div className="w-full space-y-3">
 
-        {/* ── HERO CARD — credit card layout ─────────────────────────────── */}
+        {/* ── HERO CARD ─────────────────────────────────────────────────────
+            Pure flex two-panel layout.  NO absolutely-positioned children.
+            Chrome mobile has a known bug where overflow:hidden + position:relative
+            fails to clip absolute descendants — the panels bled off-screen.
+            Using flex avoids that entirely.
+        ──────────────────────────────────────────────────────────────────── */}
         <div
-          className="rounded-2xl overflow-hidden"
+          className="w-full rounded-2xl overflow-hidden flex"
           style={{
-            position: "relative",
             minHeight: 170,
+            /*
+              The base background shows through the clip-path transparent zone
+              on the right panel, keeping a seamless dark-to-cyan appearance.
+            */
+            background: "#04111d",
             boxShadow: "0 8px 32px rgba(0,0,0,0.55), 0 2px 8px rgba(0,0,0,0.35)",
           }}>
 
-          {/* Left dark panel */}
-          <div className="absolute inset-0" style={{ background: "#04111d" }} />
-
-          {/* Right cyan panel — diagonal left edge */}
+          {/* Left: spend stats — flex-1 + min-w-0 prevents this from growing
+              beyond its flex allocation */}
           <div
-            className="absolute inset-y-0 right-0"
-            style={{
-              width: "44%",
-              background: "linear-gradient(155deg, #005870 0%, #0097b8 100%)",
-              clipPath: "polygon(22% 0%, 100% 0%, 100% 100%, 0% 100%)",
-            }}
-          />
+            className="flex-1 min-w-0 flex flex-col justify-between"
+            style={{ padding: "20px 16px 20px 20px" }}>
 
-          {/* Content layer */}
-          <div
-            className="relative flex"
-            style={{ zIndex: 1, minHeight: 170, padding: "20px" }}>
-
-            {/* ── Left: spend stats ── */}
-            <div className="flex flex-col justify-between flex-1" style={{ paddingRight: 12 }}>
-              <div>
-                <p
-                  className="text-[9px] font-bold uppercase tracking-widest"
-                  style={{ color: "rgba(255,255,255,0.38)" }}>
-                  Insight Global
-                </p>
-
-                <p
-                  className="text-[9px] font-semibold uppercase tracking-wider mt-4"
-                  style={{ color: "rgba(255,255,255,0.4)" }}>
-                  Total Spend
-                </p>
-
-                <p
-                  className="font-bold text-white leading-none mt-1"
-                  style={{ fontSize: 30, letterSpacing: "-0.02em" }}>
-                  ${Number(dollars).toLocaleString()}
-                  <span style={{ fontSize: 20, color: "rgba(0,214,242,0.85)" }}>
-                    .{cents}
-                  </span>
-                </p>
-              </div>
-
-              <div>
-                <p
-                  className="text-[9px] font-semibold uppercase tracking-wide"
-                  style={{ color: "rgba(255,255,255,0.38)" }}>
-                  Receipts Submitted
-                </p>
-                <p className="text-base font-bold text-white mt-0.5">
-                  {monthReceipts.length}
-                  <span
-                    className="ml-1.5 text-[10px] font-medium"
-                    style={{ color: "rgba(255,255,255,0.38)" }}>
-                    {now.toLocaleDateString("en-US", { month: "short", year: "numeric" })}
-                  </span>
-                </p>
-              </div>
+            <div>
+              <p style={{
+                color: "rgba(255,255,255,0.38)",
+                fontSize: 9, fontWeight: 700,
+                textTransform: "uppercase", letterSpacing: "0.1em",
+              }}>
+                Insight Global
+              </p>
+              <p style={{
+                color: "rgba(255,255,255,0.4)",
+                fontSize: 9, fontWeight: 600,
+                textTransform: "uppercase", letterSpacing: "0.08em",
+                marginTop: 16,
+              }}>
+                Total Spend
+              </p>
+              <p className="font-bold text-white leading-none mt-1"
+                style={{ fontSize: 30, letterSpacing: "-0.02em" }}>
+                ${Number(dollars).toLocaleString()}
+                <span style={{ fontSize: 20, color: "rgba(0,214,242,0.85)" }}>.{cents}</span>
+              </p>
             </div>
 
-            {/* ── Right: receipt icon over cyan panel ── */}
-            <div
-              className="flex flex-col items-center justify-center gap-2 flex-shrink-0"
-              style={{ width: "38%" }}>
-              {/* Receipt icon */}
-              <svg width="46" height="46" viewBox="0 0 46 46" fill="none">
-                <rect x="9" y="3" width="28" height="34" rx="4"
-                  stroke="rgba(255,255,255,0.9)" strokeWidth="1.8"/>
-                <path d="M15 13h16M15 19h16M15 25h10"
-                  stroke="rgba(255,255,255,0.9)" strokeWidth="1.8" strokeLinecap="round"/>
-                <path d="M9 41l4-4 4 4 4-4 4 4 4-4"
-                  stroke="rgba(255,255,255,0.7)" strokeWidth="1.5" strokeLinejoin="round"/>
-              </svg>
-              {/* Contactless-style decorative rings */}
-              <div style={{ position: "relative", width: 24, height: 24 }}>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                  <path d="M4 12 a8 8 0 0 1 8-8" stroke="rgba(255,255,255,0.35)" strokeWidth="1.4" strokeLinecap="round"/>
-                  <path d="M7 12 a5 5 0 0 1 5-5" stroke="rgba(255,255,255,0.5)"  strokeWidth="1.4" strokeLinecap="round"/>
-                  <path d="M10 12a2 2 0 0 1 2-2" stroke="rgba(255,255,255,0.7)"  strokeWidth="1.4" strokeLinecap="round"/>
-                </svg>
-              </div>
+            <div>
+              <p style={{
+                color: "rgba(255,255,255,0.38)",
+                fontSize: 9, fontWeight: 600,
+                textTransform: "uppercase", letterSpacing: "0.08em",
+              }}>
+                Receipts Submitted
+              </p>
+              <p className="font-bold text-white mt-0.5" style={{ fontSize: 16 }}>
+                {monthReceipts.length}
+                <span className="ml-1.5 font-medium"
+                  style={{ fontSize: 10, color: "rgba(255,255,255,0.38)" }}>
+                  {now.toLocaleDateString("en-US", { month: "short", year: "numeric" })}
+                </span>
+              </p>
             </div>
-
           </div>
-        </div>
 
-        {/* ── Alert banners ──────────────────────────────────────────────── */}
+          {/* Right: cyan accent panel.
+              flex-shrink-0 keeps it at exactly 42% — it will never compress.
+              clip-path slants the left edge for the diagonal cut.
+              No position:absolute → no Chrome mobile clipping bug. */}
+          <div
+            className="flex-shrink-0 flex flex-col items-center justify-center gap-3"
+            style={{
+              width: "42%",
+              background: "linear-gradient(155deg, #005870 0%, #0097b8 100%)",
+              clipPath: "polygon(20% 0%, 100% 0%, 100% 100%, 0% 100%)",
+            }}>
+
+            {/* Receipt icon */}
+            <svg width="44" height="44" viewBox="0 0 46 46" fill="none">
+              <rect x="9" y="3" width="28" height="34" rx="4"
+                stroke="rgba(255,255,255,0.9)" strokeWidth="1.8"/>
+              <path d="M15 13h16M15 19h16M15 25h10"
+                stroke="rgba(255,255,255,0.9)" strokeWidth="1.8" strokeLinecap="round"/>
+              <path d="M9 41l4-4 4 4 4-4 4 4 4-4"
+                stroke="rgba(255,255,255,0.7)" strokeWidth="1.5" strokeLinejoin="round"/>
+            </svg>
+
+            {/* Decorative arc rings */}
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+              <path d="M4 12 a8 8 0 0 1 8-8"
+                stroke="rgba(255,255,255,0.3)" strokeWidth="1.4" strokeLinecap="round"/>
+              <path d="M7 12 a5 5 0 0 1 5-5"
+                stroke="rgba(255,255,255,0.5)" strokeWidth="1.4" strokeLinecap="round"/>
+              <path d="M10 12a2 2 0 0 1 2-2"
+                stroke="rgba(255,255,255,0.7)" strokeWidth="1.4" strokeLinecap="round"/>
+            </svg>
+          </div>
+
+        </div>
+        {/* ── end hero card ─────────────────────────────────────────────── */}
+
+        {/* Alert banners */}
         {expiringSoon > 0 && (
           <Link
             href="/archive"
-            className="flex items-center gap-3 px-4 py-3 rounded-2xl active:scale-[0.99] transition-transform"
-            style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)" }}>
-            <div
-              className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 text-sm"
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl active:scale-[0.99] transition-transform"
+            style={{
+              background: "rgba(239,68,68,0.1)",
+              border: "1px solid rgba(239,68,68,0.25)",
+              boxSizing: "border-box",
+            }}>
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 text-sm"
               style={{ background: "rgba(239,68,68,0.15)" }}>⚠️</div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-bold text-red-400">
@@ -172,10 +184,13 @@ export default async function HomePage() {
         {pendingForms > 0 && (
           <Link
             href="/packets"
-            className="flex items-center gap-3 px-4 py-3 rounded-2xl active:scale-[0.99] transition-transform"
-            style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.25)" }}>
-            <div
-              className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 text-sm"
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl active:scale-[0.99] transition-transform"
+            style={{
+              background: "rgba(245,158,11,0.1)",
+              border: "1px solid rgba(245,158,11,0.25)",
+              boxSizing: "border-box",
+            }}>
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 text-sm"
               style={{ background: "rgba(245,158,11,0.15)" }}>📋</div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-bold text-yellow-400">
@@ -186,14 +201,12 @@ export default async function HomePage() {
           </Link>
         )}
 
-        {/* ── Recent Activity ─────────────────────────────────────────────── */}
+        {/* Recent Activity */}
         {recent.length > 0 && (
-          <div className="pt-1">
+          <div className="w-full pt-1">
             <div className="flex items-center justify-between mb-3">
               <p className="text-sm font-bold text-white">Recent Activity</p>
-              <Link
-                href="/packets"
-                className="text-[11px] font-semibold"
+              <Link href="/packets" className="text-[11px] font-semibold"
                 style={{ color: "#00D6F2" }}>
                 See all →
               </Link>
@@ -202,7 +215,7 @@ export default async function HomePage() {
           </div>
         )}
 
-        {/* ── Empty state ─────────────────────────────────────────────────── */}
+        {/* Empty state */}
         {receipts.length === 0 && (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <p className="text-3xl mb-3">🧾</p>
