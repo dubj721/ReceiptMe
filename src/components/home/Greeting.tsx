@@ -21,7 +21,7 @@ export default function Greeting({ firstName }: { firstName: string }) {
       <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "#00D6F2" }}>
         {dateStr}
       </p>
-      <h2 className="text-xl font-bold text-gray-900 mt-0.5 leading-snug">
+      <h2 className="text-xl font-bold text-white mt-0.5 leading-snug">
         {greeting || `Hi, ${firstName}`} 👋
       </h2>
     </div>

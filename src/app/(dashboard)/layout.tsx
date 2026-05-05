@@ -18,7 +18,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
     .single();
 
   return (
-    <div className="h-screen overflow-hidden bg-gray-50 flex" style={{ height: "100dvh" }}>
+    <div
+      className="h-screen overflow-hidden flex"
+      style={{
+        height: "100dvh",
+        background: "linear-gradient(140deg, #00283C 0%, #003d5c 55%, #00506e 100%)",
+      }}>
       {/* Desktop sidebar — hidden on mobile */}
       <div className="hidden md:flex md:w-56 md:flex-shrink-0">
         <Sidebar profile={profile} />

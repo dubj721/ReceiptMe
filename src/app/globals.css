@@ -10,8 +10,9 @@
   }
 
   body {
-    @apply bg-gray-50 text-gray-900 antialiased;
+    @apply antialiased;
     font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+    color: white;
     height: 100%;
     /* Do NOT set overflow:hidden here — it kills touch-scroll in children on iOS */
     overscroll-behavior: none;
@@ -42,17 +43,35 @@
            transition-opacity active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed;
   }
 
-  /* Card */
+  /* Card — dark glass default */
   .card {
+    background: rgba(255, 255, 255, 0.07);
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 1rem;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  /* Solid white card — use where needed for strong contrast */
+  .card-white {
     @apply bg-white rounded-2xl border border-gray-100 p-4;
   }
 
   /* Input */
   .input {
-    @apply w-full px-3 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-900
-           outline-none transition-colors focus:border-brand-cyan focus:bg-white
-           placeholder:text-gray-400;
+    width: 100%;
+    padding: 0.625rem 0.75rem;
+    border-radius: 0.75rem;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.08);
+    color: white;
+    font-size: 0.875rem;
+    outline: none;
+    transition: border-color 0.15s;
   }
+  .input::placeholder { color: rgba(255,255,255,0.35); }
+  .input:focus { border-color: #00D6F2; }
 
   .label {
     @apply block text-xs font-semibold text-gray-500 mb-1.5;
