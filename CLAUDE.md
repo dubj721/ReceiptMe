@@ -68,3 +68,20 @@ OCR pipeline: client compresses image (max 1200px, JPEG 0.85) → OCR.space → 
 ### Analytics
 
 `src/lib/track.ts` is a fire-and-forget client-side logger. Call it freely — errors are swallowed and never affect the UI.
+
+## ⚠️ CRITICAL — Mobile Layout Rules (never break these)
+
+### The min-w-0 flex rule
+Any element that is a **flex item inside a row-direction flex container** MUST have `min-w-0` if it uses `flex-1` or needs to be constrained to the container width. Without it, CSS defaults `min-width: auto`, which lets the item grow to its content's intrinsic width — past 100vw on mobile. Every `w-full` child then inherits that bloated width and cards bleed off-screen.
+
+In `(dashboard)/layout.tsx`, the content wrapper MUST stay:
+```tsx
+<div className="flex-1 flex flex-col min-h-0 min-w-0">
+```
+Never remove `min-w-0` from this element.
+
+### No absolute-positioned panels inside overflow:hidden on mobile
+Chrome mobile has a known bug where `position: relative` + `overflow: hidden` fails to clip absolutely-positioned children. Do NOT use absolute-positioned background panels inside cards. Use **flex two-panel layouts** instead (left: `flex-1 min-w-0`, right: `flex-shrink-0 width: X%`).
+
+### overflow-x: hidden is not a width constraint
+`overflow-x: hidden` clips content that exceeds the container but does NOT prevent elements from computing a width wider than the viewport. It makes overflow invisible, not absent. Always fix the root width cause; don't rely on clipping.
