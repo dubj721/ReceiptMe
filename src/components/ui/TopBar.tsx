@@ -76,14 +76,15 @@ export default function TopBar({ profile }: { profile: (User & { is_admin?: bool
 
   return (
     <>
-      <div className="bg-brand-navy px-4 pt-12 pb-4">
-        <p className="text-brand-cyan text-[10px] font-bold uppercase tracking-widest mb-0.5">
-          Insight Global
-        </p>
+      <div className="bg-brand-navy px-4 pb-2.5"
+        style={{ paddingTop: "max(44px, env(safe-area-inset-top, 44px))" }}>
         <div className="flex items-center justify-between">
-          <h1 className="text-white text-xl font-bold">{title}</h1>
+          <div>
+            <p className="text-brand-cyan text-[9px] font-bold uppercase tracking-widest leading-none mb-0.5">Insight Global</p>
+            <h1 className="text-white text-base font-bold leading-tight">{title}</h1>
+          </div>
           {profile && (
-            <div className="relative" ref={menuRef}>
+            <div className="relative flex-shrink-0" ref={menuRef}>
               <button
                 onClick={() => setOpen(o => !o)}
                 className="w-9 h-9 rounded-full bg-brand-cyan/20 border border-brand-cyan/30 flex items-center justify-center">
