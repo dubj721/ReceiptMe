@@ -18,7 +18,7 @@ function QuickAction({
   return (
     <Link href={href} className="flex flex-col items-center gap-2 active:scale-95 transition-transform">
       <div
-        className="w-12 h-12 rounded-2xl flex items-center justify-center"
+        className="w-10 h-10 rounded-xl flex items-center justify-center"
         style={{
           background: "rgba(255,255,255,0.12)",
           border: "1px solid rgba(255,255,255,0.18)",
@@ -83,7 +83,7 @@ export default async function HomePage() {
       <div className="md:max-w-lg md:mx-auto lg:max-w-none">
 
         {/* Greeting */}
-        <div className="mb-4">
+        <div className="mb-3">
           <Greeting firstName={firstName} />
         </div>
 
@@ -99,7 +99,7 @@ export default async function HomePage() {
 
             {/* Hero Summary Card */}
             <div
-              className="rounded-3xl p-5 relative overflow-hidden"
+              className="rounded-3xl p-4 relative overflow-hidden"
               style={{
                 background: "linear-gradient(140deg, #00283C 0%, #003d5c 55%, #00506e 100%)",
               }}>
@@ -123,21 +123,21 @@ export default async function HomePage() {
 
               {/* Month label */}
               <p
-                className="text-[10px] font-bold uppercase tracking-widest mb-4"
+                className="text-[10px] font-bold uppercase tracking-widest mb-3"
                 style={{ color: "#00D6F2" }}>
                 {now.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
               </p>
 
               {/* Stats row */}
-              <div className="flex items-end justify-between mb-5">
+              <div className="flex items-end justify-between mb-3">
                 {/* Total spend */}
                 <div>
-                  <p className="text-[10px] text-white/40 font-semibold uppercase tracking-wide mb-1">
+                  <p className="text-[10px] text-white/40 font-semibold uppercase tracking-wide mb-0.5">
                     Total Spend
                   </p>
-                  <p className="text-[38px] font-bold text-white leading-none tracking-tight">
+                  <p className="text-[28px] font-bold text-white leading-none tracking-tight">
                     ${Number(dollars).toLocaleString()}
-                    <span className="text-2xl" style={{ color: "rgba(0,214,242,0.55)" }}>
+                    <span className="text-xl" style={{ color: "rgba(0,214,242,0.55)" }}>
                       .{cents}
                     </span>
                   </p>
@@ -145,10 +145,10 @@ export default async function HomePage() {
 
                 {/* Receipt count */}
                 <div className="text-right">
-                  <p className="text-[10px] text-white/40 font-semibold uppercase tracking-wide mb-1">
+                  <p className="text-[10px] text-white/40 font-semibold uppercase tracking-wide mb-0.5">
                     Submitted
                   </p>
-                  <p className="text-[38px] font-bold text-white leading-none tracking-tight">
+                  <p className="text-[28px] font-bold text-white leading-none tracking-tight">
                     {monthReceipts.length}
                   </p>
                   <p className="text-[10px] text-white/40 mt-0.5">receipts</p>
@@ -156,7 +156,7 @@ export default async function HomePage() {
               </div>
 
               {/* Divider */}
-              <div className="border-t mb-4" style={{ borderColor: "rgba(255,255,255,0.1)" }} />
+              <div className="border-t mb-3" style={{ borderColor: "rgba(255,255,255,0.1)" }} />
 
               {/* Quick actions */}
               <div className="flex justify-around">
@@ -164,7 +164,7 @@ export default async function HomePage() {
                   href="/capture"
                   label="Add Receipt"
                   icon={
-                    <svg width="20" height="20" viewBox="0 0 22 22" fill="none">
+                    <svg width="18" height="18" viewBox="0 0 22 22" fill="none">
                       <path
                         d="M2 8a2 2 0 012-2h1.5l1.5-2h7l1.5 2H18a2 2 0 012 2v9a2 2 0 01-2 2H4a2 2 0 01-2-2V8z"
                         stroke="white" strokeWidth="1.5" strokeLinejoin="round"/>
@@ -176,7 +176,7 @@ export default async function HomePage() {
                   href="/packets"
                   label="Packets"
                   icon={
-                    <svg width="20" height="20" viewBox="0 0 22 22" fill="none">
+                    <svg width="18" height="18" viewBox="0 0 22 22" fill="none">
                       <rect x="3" y="3" width="7" height="7" rx="2" stroke="white" strokeWidth="1.5"/>
                       <rect x="12" y="3" width="7" height="7" rx="2" stroke="white" strokeWidth="1.5"/>
                       <rect x="3" y="12" width="7" height="7" rx="2" stroke="white" strokeWidth="1.5"/>
@@ -188,7 +188,7 @@ export default async function HomePage() {
                   href="/archive"
                   label="Archive"
                   icon={
-                    <svg width="20" height="20" viewBox="0 0 22 22" fill="none">
+                    <svg width="18" height="18" viewBox="0 0 22 22" fill="none">
                       <rect x="3" y="7" width="16" height="12" rx="2" stroke="white" strokeWidth="1.5"/>
                       <path d="M3 10h16" stroke="white" strokeWidth="1.5"/>
                       <path d="M7 3h8" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
@@ -200,7 +200,7 @@ export default async function HomePage() {
                   href="/settings"
                   label="Settings"
                   icon={
-                    <svg width="20" height="20" viewBox="0 0 22 22" fill="none">
+                    <svg width="18" height="18" viewBox="0 0 22 22" fill="none">
                       <circle cx="11" cy="11" r="3" stroke="white" strokeWidth="1.5"/>
                       <path
                         d="M11 2v2M11 18v2M2 11h2M18 11h2M4.93 4.93l1.41 1.41M15.66 15.66l1.41 1.41M4.93 17.07l1.41-1.41M15.66 6.34l1.41-1.41"

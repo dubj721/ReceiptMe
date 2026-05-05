@@ -28,7 +28,7 @@ export default async function ArchivePage() {
   };
 
   return (
-    <div className="px-4 pt-2 md:pt-0 pb-8">
+    <div className="px-4 pt-2 md:pt-0 pb-8 md:max-w-2xl md:mx-auto">
       {/* CA exemption notice */}
       {country === "CA" && (
         <div className="mb-4 px-4 py-3 rounded-2xl bg-blue-50 border border-blue-200">

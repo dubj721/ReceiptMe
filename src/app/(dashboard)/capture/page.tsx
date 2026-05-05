@@ -224,7 +224,7 @@ export default function CapturePage() {
   );
 
   if (step === "source") return (
-    <div className="px-4 pt-2 md:pt-0 pb-8 space-y-3">
+    <div className="px-4 pt-2 md:pt-0 pb-8 space-y-3 md:max-w-lg md:mx-auto">
       <SourceCard icon="📷" title="Photo Receipt" subtitle="Photograph a paper receipt"
         onClick={() => { setSource("photo"); setStep("upload"); }} />
       <SourceCard icon="🏦" title="Bank Transaction" subtitle="Screenshot from your bank — form required"
@@ -237,7 +237,7 @@ export default function CapturePage() {
   );
 
   if (step === "upload") return (
-    <div className="px-4 pt-2 md:pt-0 pb-8 space-y-4">
+    <div className="px-4 pt-2 md:pt-0 pb-8 space-y-4 md:max-w-lg md:mx-auto">
       {back("source")}
       <div>
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
@@ -266,7 +266,7 @@ export default function CapturePage() {
   );
 
   if (step === "form") return (
-    <div className="px-4 pt-2 md:pt-0 pb-8 space-y-5">
+    <div className="px-4 pt-2 md:pt-0 pb-8 space-y-5 md:max-w-lg md:mx-auto">
       {source !== "manual" && back("upload")}
       {preview && (
         <div className="w-full rounded-2xl overflow-hidden border border-gray-100 max-h-40">
@@ -343,7 +343,7 @@ export default function CapturePage() {
   );
 
   if (step === "missing-form") return (
-    <div className="px-4 pt-2 md:pt-0 pb-8 space-y-5">
+    <div className="px-4 pt-2 md:pt-0 pb-8 space-y-5 md:max-w-lg md:mx-auto">
       <div className="px-4 py-3 rounded-2xl bg-brand-navy/5 border border-brand-navy/10">
         <p className="text-xs font-bold text-brand-navy uppercase tracking-widest mb-0.5">Insight Global LLC</p>
         <p className="text-sm font-semibold text-gray-800">Missing Expense Receipt Form</p>
