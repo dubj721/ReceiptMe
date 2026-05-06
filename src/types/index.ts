@@ -17,6 +17,7 @@ export interface User {
   email: string;
   name: string;
   country: Country;
+  city?: string | null;
   concur_connected: boolean;
   created_at: string;
 }

@@ -1,9 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
 import { daysOld, isPolicyApplicable } from "@/types";
 import type { Receipt, User } from "@/types";
+import { getNextDeadline } from "@/lib/expense-schedule";
 import Link from "next/link";
 import RecentActivity from "@/components/home/RecentActivity";
 import Greeting from "@/components/home/Greeting";
+import DeadlineBanner from "@/components/home/DeadlineBanner";
 
 export default async function HomePage() {
   const supabase = await createClient();
@@ -15,7 +17,6 @@ export default async function HomePage() {
   const typedProfile = profile as User | null;
 
   const firstName = typedProfile?.name?.split(" ")[0] ?? "there";
-  const now       = new Date();
 
   const { data: allReceipts } = await supabase
     .from("receipts")
@@ -25,12 +26,6 @@ export default async function HomePage() {
     .order("created_at", { ascending: false });
 
   const receipts = (allReceipts ?? []) as Receipt[];
-
-  const monthReceipts = receipts.filter(r => {
-    const d = new Date(r.created_at);
-    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-  });
-  const monthTotal = monthReceipts.reduce((s, r) => s + Number(r.amount), 0);
 
   const expiringSoon = isPolicyApplicable((typedProfile?.country ?? "US") as "US" | "CA")
     ? receipts.filter(r => daysOld(r.transaction_date) >= 45).length
@@ -42,14 +37,12 @@ export default async function HomePage() {
 
   const recent = receipts.slice(0, 5);
 
-  const totalFixed = monthTotal.toFixed(2);
-  const [dollars, cents] = totalFixed.split(".");
+  // Expense deadline for this user's city
+  const deadline   = getNextDeadline(typedProfile?.city);
+  const daysUntil  = deadline?.daysUntil ?? null;
+  const dueDate    = deadline?.date      ?? null;
 
   return (
-    /*
-      w-full + box-sizing keeps this div exactly viewport-width minus any parent
-      padding — nothing can bleed out to the right.
-    */
     <div className="w-full px-4 pt-3 pb-8" style={{ boxSizing: "border-box" }}>
 
       {/* Greeting */}
@@ -59,108 +52,14 @@ export default async function HomePage() {
 
       <div className="w-full space-y-3">
 
-        {/* ── HERO CARD ─────────────────────────────────────────────────────
-            Pure flex two-panel layout.  NO absolutely-positioned children.
-            Chrome mobile has a known bug where overflow:hidden + position:relative
-            fails to clip absolute descendants — the panels bled off-screen.
-            Using flex avoids that entirely.
-        ──────────────────────────────────────────────────────────────────── */}
-        <div
-          className="w-full rounded-2xl overflow-hidden flex"
-          style={{
-            minHeight: 170,
-            /*
-              The base background shows through the clip-path transparent zone
-              on the right panel, keeping a seamless dark-to-cyan appearance.
-            */
-            background: "#04111d",
-            boxShadow: "0 8px 32px rgba(0,0,0,0.55), 0 2px 8px rgba(0,0,0,0.35)",
-          }}>
+        {/* ── Expense Deadline Banner ─────────────────────────────────────── */}
+        <DeadlineBanner
+          city={typedProfile?.city}
+          daysUntil={daysUntil}
+          dueDate={dueDate}
+        />
 
-          {/* Left: spend stats — flex-1 + min-w-0 prevents this from growing
-              beyond its flex allocation */}
-          <div
-            className="flex-1 min-w-0 flex flex-col justify-between"
-            style={{ padding: "20px 16px 20px 20px" }}>
-
-            <div>
-              <p style={{
-                color: "rgba(255,255,255,0.38)",
-                fontSize: 9, fontWeight: 700,
-                textTransform: "uppercase", letterSpacing: "0.1em",
-              }}>
-                Insight Global
-              </p>
-              <p style={{
-                color: "rgba(255,255,255,0.4)",
-                fontSize: 9, fontWeight: 600,
-                textTransform: "uppercase", letterSpacing: "0.08em",
-                marginTop: 16,
-              }}>
-                Total Spend
-              </p>
-              <p className="font-bold text-white leading-none mt-1"
-                style={{ fontSize: 30, letterSpacing: "-0.02em" }}>
-                ${Number(dollars).toLocaleString()}
-                <span style={{ fontSize: 20, color: "rgba(0,214,242,0.85)" }}>.{cents}</span>
-              </p>
-            </div>
-
-            <div>
-              <p style={{
-                color: "rgba(255,255,255,0.38)",
-                fontSize: 9, fontWeight: 600,
-                textTransform: "uppercase", letterSpacing: "0.08em",
-              }}>
-                Receipts Submitted
-              </p>
-              <p className="font-bold text-white mt-0.5" style={{ fontSize: 16 }}>
-                {monthReceipts.length}
-                <span className="ml-1.5 font-medium"
-                  style={{ fontSize: 10, color: "rgba(255,255,255,0.38)" }}>
-                  {now.toLocaleDateString("en-US", { month: "short", year: "numeric" })}
-                </span>
-              </p>
-            </div>
-          </div>
-
-          {/* Right: cyan accent panel.
-              flex-shrink-0 keeps it at exactly 42% — it will never compress.
-              clip-path slants the left edge for the diagonal cut.
-              No position:absolute → no Chrome mobile clipping bug. */}
-          <div
-            className="flex-shrink-0 flex flex-col items-center justify-center gap-3"
-            style={{
-              width: "42%",
-              background: "linear-gradient(155deg, #005870 0%, #0097b8 100%)",
-              clipPath: "polygon(20% 0%, 100% 0%, 100% 100%, 0% 100%)",
-            }}>
-
-            {/* Receipt icon */}
-            <svg width="44" height="44" viewBox="0 0 46 46" fill="none">
-              <rect x="9" y="3" width="28" height="34" rx="4"
-                stroke="rgba(255,255,255,0.9)" strokeWidth="1.8"/>
-              <path d="M15 13h16M15 19h16M15 25h10"
-                stroke="rgba(255,255,255,0.9)" strokeWidth="1.8" strokeLinecap="round"/>
-              <path d="M9 41l4-4 4 4 4-4 4 4 4-4"
-                stroke="rgba(255,255,255,0.7)" strokeWidth="1.5" strokeLinejoin="round"/>
-            </svg>
-
-            {/* Decorative arc rings */}
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-              <path d="M4 12 a8 8 0 0 1 8-8"
-                stroke="rgba(255,255,255,0.3)" strokeWidth="1.4" strokeLinecap="round"/>
-              <path d="M7 12 a5 5 0 0 1 5-5"
-                stroke="rgba(255,255,255,0.5)" strokeWidth="1.4" strokeLinecap="round"/>
-              <path d="M10 12a2 2 0 0 1 2-2"
-                stroke="rgba(255,255,255,0.7)" strokeWidth="1.4" strokeLinecap="round"/>
-            </svg>
-          </div>
-
-        </div>
-        {/* ── end hero card ─────────────────────────────────────────────── */}
-
-        {/* Alert banners */}
+        {/* ── Alert banners ──────────────────────────────────────────────── */}
         {expiringSoon > 0 && (
           <Link
             href="/archive"
@@ -201,7 +100,7 @@ export default async function HomePage() {
           </Link>
         )}
 
-        {/* Recent Activity */}
+        {/* ── Recent Activity ─────────────────────────────────────────────── */}
         {recent.length > 0 && (
           <div className="w-full pt-1">
             <div className="flex items-center justify-between mb-3">
@@ -215,7 +114,7 @@ export default async function HomePage() {
           </div>
         )}
 
-        {/* Empty state */}
+        {/* ── Empty state ─────────────────────────────────────────────────── */}
         {receipts.length === 0 && (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <p className="text-3xl mb-3">🧾</p>
