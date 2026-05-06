@@ -1,17 +1,10 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { trackEvent } from "@/lib/track";
 import type { User } from "@/types";
-
-const titles: Record<string, string> = {
-  "/home":    "Home",
-  "/packets": "Packets",
-  "/capture": "Add Receipt",
-  "/archive": "Overdue Archive",
-};
 
 const ADMIN_ICON = (
   <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
@@ -21,17 +14,15 @@ const ADMIN_ICON = (
 );
 
 export default function TopBar({ profile }: { profile: (User & { is_admin?: boolean }) | null }) {
-  const pathname = usePathname();
-  const router   = useRouter();
-  const title    = titles[pathname] ?? "Receipt Manager";
+  const router = useRouter();
 
-  const [open, setOpen]           = useState(false);
-  const [fbOpen, setFbOpen]       = useState(false);
-  const [rating, setRating]       = useState(0);
-  const [hover, setHover]         = useState(0);
-  const [comment, setComment]     = useState("");
+  const [open,       setOpen]       = useState(false);
+  const [fbOpen,     setFbOpen]     = useState(false);
+  const [rating,     setRating]     = useState(0);
+  const [hover,      setHover]      = useState(0);
+  const [comment,    setComment]    = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [done, setDone]           = useState(false);
+  const [done,       setDone]       = useState(false);
 
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -74,74 +65,120 @@ export default function TopBar({ profile }: { profile: (User & { is_admin?: bool
     }
   }
 
+  const initials = profile?.name
+    ? profile.name.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase()
+    : "?";
+
   return (
     <>
-      <div className="bg-brand-navy px-4 pb-2.5"
-        style={{ paddingTop: "max(44px, env(safe-area-inset-top, 44px))" }}>
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-brand-cyan text-[9px] font-bold uppercase tracking-widest leading-none mb-0.5">Insight Global</p>
-            <h1 className="text-white text-base font-bold leading-tight">{title}</h1>
-          </div>
-          {profile && (
-            <div className="relative flex-shrink-0" ref={menuRef}>
+      {/* ── Top bar ─────────────────────────────────────────────────────── */}
+      <div
+        className="w-full flex items-center gap-3 px-4"
+        style={{
+          paddingTop: "max(48px, env(safe-area-inset-top, 48px))",
+          paddingBottom: 14,
+          background: "transparent",
+        }}>
+
+        {/* ── Left: avatar — tap to open account menu ── */}
+        <div className="flex-shrink-0 relative" ref={menuRef}>
+          <button
+            onClick={() => setOpen(o => !o)}
+            className="w-10 h-10 rounded-full flex items-center justify-center active:scale-95 transition-transform"
+            style={{
+              background: "linear-gradient(135deg, #005070 0%, #007fa0 100%)",
+              border: "2px solid rgba(0,214,242,0.45)",
+              boxShadow: "0 2px 10px rgba(0,214,242,0.2)",
+            }}
+            aria-label="Account menu">
+            <span className="text-white text-sm font-bold tracking-wide">{initials}</span>
+          </button>
+
+          {/* Dropdown */}
+          {open && (
+            <div
+              className="absolute left-0 top-12 w-56 rounded-2xl shadow-2xl overflow-hidden z-50"
+              style={{ background: "#ffffff", border: "1px solid rgba(0,0,0,0.08)" }}>
+
+              {/* Profile header */}
+              <div className="px-4 py-3" style={{ background: "#f8fafc", borderBottom: "1px solid #f1f5f9" }}>
+                <p className="text-xs font-bold text-gray-900 truncate">{profile?.name}</p>
+                <p className="text-[10px] text-gray-400 truncate mt-0.5">{profile?.email}</p>
+              </div>
+
               <button
-                onClick={() => setOpen(o => !o)}
-                className="w-9 h-9 rounded-full bg-brand-cyan/20 border border-brand-cyan/30 flex items-center justify-center">
-                <span className="text-brand-cyan text-sm font-bold">
-                  {profile.name?.charAt(0).toUpperCase()}
-                </span>
+                onClick={() => { setOpen(false); router.push("/settings"); }}
+                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+                  <circle cx="7.5" cy="5" r="2.5" stroke="#6b7280" strokeWidth="1.3"/>
+                  <path d="M2.5 13c0-2.5 2.2-4.5 5-4.5s5 2 5 4.5" stroke="#6b7280" strokeWidth="1.3" strokeLinecap="round"/>
+                </svg>
+                Account Settings
               </button>
 
-              {open && (
-                <div className="absolute right-0 top-11 w-52 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-50">
-                  <div className="px-4 py-3 bg-gray-50 border-b border-gray-100">
-                    <p className="text-xs font-bold text-gray-900 truncate">{profile.name}</p>
-                    <p className="text-[10px] text-gray-400 truncate mt-0.5">{profile.email}</p>
-                  </div>
-                  <button
-                    onClick={() => { setOpen(false); router.push("/settings"); }}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                    <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
-                      <circle cx="7.5" cy="5" r="2.5" stroke="#6b7280" strokeWidth="1.3"/>
-                      <path d="M2.5 13c0-2.5 2.2-4.5 5-4.5s5 2 5 4.5" stroke="#6b7280" strokeWidth="1.3" strokeLinecap="round"/>
-                    </svg>
-                    Account Settings
-                  </button>
-                  <button
-                    onClick={openFeedback}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-t border-gray-100">
-                    <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
-                      <path d="M2 2h12v9H9l-3 3v-3H2V2z" stroke="#6b7280" strokeWidth="1.4" strokeLinejoin="round"/>
-                      <path d="M5 6h6M5 8.5h4" stroke="#6b7280" strokeWidth="1.2" strokeLinecap="round"/>
-                    </svg>
-                    Leave Feedback
-                  </button>
-                  {profile?.is_admin && (
-                    <button
-                      onClick={() => { setOpen(false); router.push("/admin"); }}
-                      className="w-full flex items-center gap-3 px-4 py-3 text-sm text-brand-navy hover:bg-blue-50 transition-colors border-t border-gray-100">
-                      <span className="text-brand-navy">{ADMIN_ICON}</span>
-                      Switch to Admin View
-                    </button>
-                  )}
-                  <button
-                    onClick={signOut}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-500 hover:bg-red-50 transition-colors border-t border-gray-100">
-                    <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
-                      <path d="M5.5 2.5H3a1 1 0 00-1 1v8a1 1 0 001 1h2.5" stroke="#ef4444" strokeWidth="1.3" strokeLinecap="round"/>
-                      <path d="M10 10.5l3-3-3-3M13 7.5H6" stroke="#ef4444" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                    Sign Out
-                  </button>
-                </div>
+              <button
+                onClick={openFeedback}
+                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                style={{ borderTop: "1px solid #f1f5f9" }}>
+                <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+                  <path d="M2 2h12v9H9l-3 3v-3H2V2z" stroke="#6b7280" strokeWidth="1.4" strokeLinejoin="round"/>
+                  <path d="M5 6h6M5 8.5h4" stroke="#6b7280" strokeWidth="1.2" strokeLinecap="round"/>
+                </svg>
+                Leave Feedback
+              </button>
+
+              {profile?.is_admin && (
+                <button
+                  onClick={() => { setOpen(false); router.push("/admin"); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-blue-50 transition-colors"
+                  style={{ color: "#00283C", borderTop: "1px solid #f1f5f9" }}>
+                  <span style={{ color: "#00283C" }}>{ADMIN_ICON}</span>
+                  Switch to Admin View
+                </button>
               )}
+
+              <button
+                onClick={signOut}
+                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-500 hover:bg-red-50 transition-colors"
+                style={{ borderTop: "1px solid #f1f5f9" }}>
+                <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+                  <path d="M5.5 2.5H3a1 1 0 00-1 1v8a1 1 0 001 1h2.5" stroke="#ef4444" strokeWidth="1.3" strokeLinecap="round"/>
+                  <path d="M10 10.5l3-3-3-3M13 7.5H6" stroke="#ef4444" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                Sign Out
+              </button>
             </div>
           )}
         </div>
+
+        {/* ── Center: user name ── */}
+        <div className="flex-1 min-w-0 text-center">
+          <p className="text-white font-semibold truncate" style={{ fontSize: 16 }}>
+            {profile?.name ?? ""}
+          </p>
+        </div>
+
+        {/* ── Right: notifications bell (wired up later) ── */}
+        <button
+          className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center active:scale-95 transition-transform"
+          style={{
+            background: "rgba(255,255,255,0.07)",
+            border: "1px solid rgba(255,255,255,0.12)",
+          }}
+          aria-label="Notifications">
+          <svg width="18" height="18" viewBox="0 0 22 22" fill="none">
+            <path
+              d="M11 3a7 7 0 0 1 7 7v3.5l1.5 2.5H3.5L5 13.5V10a7 7 0 0 1 7-7z"
+              stroke="rgba(255,255,255,0.65)" strokeWidth="1.5" strokeLinejoin="round"/>
+            <path
+              d="M9 19a2 2 0 0 0 4 0"
+              stroke="rgba(255,255,255,0.65)" strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
+        </button>
+
       </div>
 
-      {/* Feedback modal */}
+      {/* ── Feedback modal (unchanged) ──────────────────────────────────── */}
       {fbOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setFbOpen(false)} />
