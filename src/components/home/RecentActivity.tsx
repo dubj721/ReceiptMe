@@ -86,8 +86,8 @@ export default function RecentActivity({ receipts, country }: {
               <div
                 className="group card flex items-center gap-3 transition-all"
                 style={warn ? {
-                  background: "rgba(245,158,11,0.1)",
-                  borderColor: "rgba(245,158,11,0.28)",
+                  background: "linear-gradient(135deg, rgb(60, 32, 4) 0%, rgb(80, 44, 6) 100%)",
+                  borderColor: "rgba(245,158,11,0.4)",
                 } : {
                   boxShadow: "0 2px 12px rgba(0,0,0,0.25)",
                 }}>

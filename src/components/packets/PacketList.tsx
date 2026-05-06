@@ -17,26 +17,33 @@ function DaysBadge({ days, country }: { days: number; country: string }) {
 }
 
 /* ─── Form icon ──────────────────────────────────────────── */
-function FormIconButton({ completed, onClick }: { completed: boolean; onClick: (e: React.MouseEvent<HTMLButtonElement>) => void }) {
+function FormIconButton({ completed, onClick }: {
+  completed: boolean;
+  onClick: (e: React.MouseEvent<HTMLButtonElement>) => void;
+}) {
   return (
-    <button onClick={onClick}
+    <button
+      onClick={onClick}
       title={completed ? "View Missing Receipt Form" : "Missing Receipt Form — action needed"}
-      className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 border transition-transform active:scale-90
-        ${completed ? "bg-green-50 border-green-200 hover:bg-green-100" : "bg-yellow-50 border-yellow-200 hover:bg-yellow-100"}`}>
+      className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 transition-transform active:scale-90"
+      style={{
+        background: completed ? "rgba(34,197,94,0.15)" : "rgba(245,158,11,0.15)",
+        border: `1px solid ${completed ? "rgba(34,197,94,0.3)" : "rgba(245,158,11,0.3)"}`,
+      }}>
       <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
         <rect x="2.5" y="1" width="9" height="12" rx="1.8"
-          stroke={completed ? "#16a34a" : "#b45309"} strokeWidth="1.3"/>
+          stroke={completed ? "#4ade80" : "#fbbf24"} strokeWidth="1.3"/>
         <path d="M5 5h5M5 7.2h5M5 9.4h3"
-          stroke={completed ? "#16a34a" : "#b45309"} strokeWidth="1.1" strokeLinecap="round"/>
+          stroke={completed ? "#4ade80" : "#fbbf24"} strokeWidth="1.1" strokeLinecap="round"/>
         {completed ? (
           <>
-            <circle cx="12.2" cy="12.5" r="2.8" fill="#f0fdf4" stroke="#16a34a" strokeWidth="1"/>
-            <path d="M11.2 12.5l.8.8 1.4-1.4" stroke="#16a34a" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"/>
+            <circle cx="12.2" cy="12.5" r="2.8" fill="rgba(34,197,94,0.2)" stroke="#4ade80" strokeWidth="1"/>
+            <path d="M11.2 12.5l.8.8 1.4-1.4" stroke="#4ade80" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"/>
           </>
         ) : (
           <>
-            <circle cx="12.2" cy="12.5" r="2.8" fill="#fefce8" stroke="#b45309" strokeWidth="1"/>
-            <path d="M12.2 10.8v1.5M12.2 13.6v.2" stroke="#b45309" strokeWidth="1.1" strokeLinecap="round"/>
+            <circle cx="12.2" cy="12.5" r="2.8" fill="rgba(245,158,11,0.2)" stroke="#fbbf24" strokeWidth="1"/>
+            <path d="M12.2 10.8v1.5M12.2 13.6v.2" stroke="#fbbf24" strokeWidth="1.1" strokeLinecap="round"/>
           </>
         )}
       </svg>
@@ -44,31 +51,42 @@ function FormIconButton({ completed, onClick }: { completed: boolean; onClick: (
   );
 }
 
-/* ─── Swipeable receipt card ─────────────────────────────── */
+/* ─── Receipt card ───────────────────────────────────────── */
+
+// Solid opaque dark-teal gradient — the base card look
+const CARD_BG   = "linear-gradient(135deg, rgb(10, 44, 68) 0%, rgb(16, 62, 92) 100%)";
+// Warn state: opaque dark amber
+const WARN_BG   = "linear-gradient(135deg, rgb(60, 32, 4) 0%, rgb(80, 44, 6) 100%)";
+// Overdue state: opaque dark red
+const OVERDUE_BG = "linear-gradient(135deg, rgb(70, 10, 10) 0%, rgb(90, 16, 16) 100%)";
+
+const categoryEmoji: Record<string, string> = {
+  meals: "🍽️", lodging: "🏨", transit: "🚗", other: "📄",
+};
+
 function ReceiptCard({
   receipt, country,
   onFormIconClick, onViewClick, onDelete, onEditClick,
 }: {
   receipt: Receipt; country: string;
   onFormIconClick: (r: Receipt) => void;
-  onViewClick: (r: Receipt) => void;
-  onDelete: (id: string) => void;
-  onEditClick?: (r: Receipt) => void;
+  onViewClick:     (r: Receipt) => void;
+  onDelete:        (id: string) => void;
+  onEditClick?:    (r: Receipt) => void;
 }) {
-  const days     = daysOld(receipt.transaction_date);
-  const isBank   = receipt.source === "bank_transaction";
-  const formDone = !!receipt.missing_receipt_form?.completed_at;
+  const days      = daysOld(receipt.transaction_date);
+  const isBank    = receipt.source === "bank_transaction";
+  const formDone  = !!receipt.missing_receipt_form?.completed_at;
   const needsForm = isBank && !formDone;
+  const isOverdue = isPolicyApplicable(country as "US" | "CA") && days >= 61;
 
-  const [offset, setOffset] = useState(0);
+  const [offset,     setOffset]     = useState(0);
   const [confirming, setConfirming] = useState(false);
   const startX = useRef<number | null>(null);
   const REVEAL = 130;
 
-  const onTouchStart = (e: React.TouchEvent) => {
-    startX.current = e.touches[0].clientX;
-  };
-  const onTouchMove = (e: React.TouchEvent) => {
+  const onTouchStart = (e: React.TouchEvent) => { startX.current = e.touches[0].clientX; };
+  const onTouchMove  = (e: React.TouchEvent) => {
     if (startX.current === null) return;
     const delta = startX.current - e.touches[0].clientX;
     setOffset(Math.max(0, Math.min(REVEAL, delta)));
@@ -78,111 +96,138 @@ function ReceiptCard({
     startX.current = null;
   };
 
-  const categoryEmoji: Record<string, string> = {
-    meals: "🍽️", lodging: "🏨", transit: "🚗", other: "📄",
-  };
+  // Pick the right card background
+  const cardBg = isOverdue ? OVERDUE_BG : needsForm ? WARN_BG : CARD_BG;
+  const cardBorder = isOverdue
+    ? "rgba(239,68,68,0.4)"
+    : needsForm
+      ? "rgba(245,158,11,0.4)"
+      : "rgba(0,214,242,0.18)";
 
   return (
     <>
-    {/* Inline delete confirmation */}
-    {confirming && (
-      <div className="mb-2 px-4 py-3 rounded-2xl bg-red-50 border border-red-200 flex items-center justify-between gap-3">
-        <p className="text-xs font-semibold text-red-700">Delete this receipt?</p>
-        <div className="flex gap-2">
-          <button onClick={() => setConfirming(false)}
-            className="px-3 py-1.5 rounded-lg bg-white border border-gray-200 text-xs font-semibold text-gray-600">
-            Cancel
+      {/* Inline delete confirmation */}
+      {confirming && (
+        <div
+          className="mb-2 px-4 py-3 rounded-2xl flex items-center justify-between gap-3"
+          style={{
+            background: "linear-gradient(135deg, rgb(70,10,10) 0%, rgb(90,16,16) 100%)",
+            border: "1px solid rgba(239,68,68,0.35)",
+          }}>
+          <p className="text-xs font-semibold text-red-300">Delete this receipt?</p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setConfirming(false)}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold"
+              style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.7)" }}>
+              Cancel
+            </button>
+            <button
+              onClick={() => { setConfirming(false); onDelete(receipt.id); }}
+              className="px-3 py-1.5 rounded-lg bg-red-500 text-xs font-semibold text-white">
+              Delete
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="group relative overflow-hidden rounded-2xl mb-2">
+        {/* Action buttons behind (swipe reveals) */}
+        <div className="absolute right-0 top-0 bottom-0 flex items-stretch">
+          <button
+            onClick={() => { setOffset(0); onEditClick?.(receipt); }}
+            className="w-16 flex flex-col items-center justify-center gap-1 text-white text-[10px] font-bold"
+            style={{ background: "rgba(0,150,200,0.85)", borderRadius: "0 12px 12px 0" }}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M2 14l1.5-5.5L11 1l3 3-7.5 7.5L2 14z" stroke="white" strokeWidth="1.4" strokeLinejoin="round"/>
+            </svg>
+            Edit
           </button>
-          <button onClick={() => { setConfirming(false); onDelete(receipt.id); }}
-            className="px-3 py-1.5 rounded-lg bg-red-500 text-xs font-semibold text-white">
+          <button
+            onClick={() => { setOffset(0); setConfirming(true); }}
+            className="w-16 flex flex-col items-center justify-center gap-1 text-white text-[10px] font-bold"
+            style={{ background: "rgba(200,40,40,0.85)", borderRadius: "0 12px 12px 0" }}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M3 4h10M5 4V3h6v1M6 7v4M10 7v4" stroke="white" strokeWidth="1.4" strokeLinecap="round"/>
+              <rect x="3.5" y="4" width="9" height="9" rx="1.5" stroke="white" strokeWidth="1.4"/>
+            </svg>
             Delete
           </button>
         </div>
-      </div>
-    )}
-    <div className="group relative overflow-hidden rounded-2xl mb-2">
-      {/* Action buttons behind */}
-      <div className="absolute right-0 top-0 bottom-0 flex items-stretch">
-        <button
-          onClick={() => { setOffset(0); onEditClick?.(receipt); }}
-          className="w-16 bg-gray-400 flex flex-col items-center justify-center gap-1 text-white text-[10px] font-bold"
-          style={{ borderRadius: "0 12px 12px 0" }}>
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M2 14l1.5-5.5L11 1l3 3-7.5 7.5L2 14z" stroke="white" strokeWidth="1.4" strokeLinejoin="round"/>
-          </svg>
-          Edit
-        </button>
-        <button
-          onClick={() => { setOffset(0); setConfirming(true); }}
-          className="w-16 bg-red-400 flex flex-col items-center justify-center gap-1 text-white text-[10px] font-bold"
-          style={{ borderRadius: "0 12px 12px 0" }}>
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M3 4h10M5 4V3h6v1M6 7v4M10 7v4" stroke="white" strokeWidth="1.4" strokeLinecap="round"/>
-            <rect x="3.5" y="4" width="9" height="9" rx="1.5" stroke="white" strokeWidth="1.4"/>
-          </svg>
-          Delete
-        </button>
-      </div>
 
-      {/* Sliding card */}
-      <div
-        className={`card flex items-center gap-3 cursor-pointer transition-all
-          ${needsForm ? "border-yellow-200 bg-yellow-50/30" : ""}
-          ${days >= 61 && isPolicyApplicable(country as "US" | "CA") ? "border-red-200 bg-red-50/20" : ""}
-        `}
-        style={{ transform: `translateX(-${offset}px)`, transition: startX.current ? "none" : "transform 0.2s ease" }}
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
-        onClick={() => { if (offset === 0) onViewClick(receipt); }}
-      >
-        <div className="w-9 h-9 rounded-xl bg-gray-50 flex items-center justify-center flex-shrink-0 text-lg">
-          {categoryEmoji[receipt.category] ?? "📄"}
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-gray-900 truncate">{receipt.vendor_name}</p>
-          <p className="text-[11px] text-gray-400 mt-0.5">
-            {new Date(receipt.transaction_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-            {" · "}{receipt.category}{" · "}{receipt.source.replace("_", " ")}
-          </p>
-        </div>
-        <div className="flex flex-col items-end gap-1 flex-shrink-0">
-          <span className="text-sm font-semibold text-gray-900">
-            ${Number(receipt.amount).toFixed(2)}
-          </span>
-          <DaysBadge days={days} country={country} />
-        </div>
-        {isBank && (
-          <FormIconButton
-            completed={formDone}
-            onClick={(e: any) => { e.stopPropagation(); onFormIconClick(receipt); }}
-          />
-        )}
+        {/* Sliding card */}
+        <div
+          className="group flex items-center gap-3 px-4 py-3 rounded-2xl cursor-pointer"
+          style={{
+            background: cardBg,
+            border: `1px solid ${cardBorder}`,
+            transform: `translateX(-${offset}px)`,
+            transition: startX.current ? "none" : "transform 0.2s ease",
+            boxSizing: "border-box",
+          }}
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+          onClick={() => { if (offset === 0) onViewClick(receipt); }}
+        >
+          {/* Emoji */}
+          <div
+            className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 text-lg"
+            style={{ background: "rgba(255,255,255,0.1)" }}>
+            {categoryEmoji[receipt.category] ?? "📄"}
+          </div>
 
-        {/* Desktop hover actions — hidden on mobile (swipe handles it there) */}
-        <button
-          onClick={(e) => { e.stopPropagation(); onEditClick?.(receipt); }}
-          title="Edit receipt"
-          className="hidden md:flex flex-shrink-0 w-7 h-7 rounded-lg items-center justify-center
-            text-gray-300 hover:bg-blue-50 hover:text-blue-400 transition-all
-            opacity-0 group-hover:opacity-100">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-            <path d="M2 14l1.5-5.5L11 1l3 3-7.5 7.5L2 14z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
-          </svg>
-        </button>
-        <button
-          onClick={(e) => { e.stopPropagation(); setConfirming(true); }}
-          title="Delete receipt"
-          className="hidden md:flex flex-shrink-0 w-7 h-7 rounded-lg items-center justify-center
-            text-gray-300 hover:bg-red-50 hover:text-red-400 transition-all
-            opacity-0 group-hover:opacity-100">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-            <path d="M3 4h10M5 4V3h6v1M6 7v4M10 7v4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
-            <rect x="3.5" y="4" width="9" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.4"/>
-          </svg>
-        </button>
+          {/* Info */}
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-white truncate">{receipt.vendor_name}</p>
+            <p className="text-[11px] mt-0.5" style={{ color: "rgba(255,255,255,0.5)" }}>
+              {new Date(receipt.transaction_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+              {" · "}{receipt.category}{" · "}{receipt.source.replace("_", " ")}
+            </p>
+          </div>
+
+          {/* Amount + badge */}
+          <div className="flex flex-col items-end gap-1 flex-shrink-0">
+            <span className="text-sm font-semibold text-white">
+              ${Number(receipt.amount).toFixed(2)}
+            </span>
+            <DaysBadge days={days} country={country} />
+          </div>
+
+          {/* Form icon */}
+          {isBank && (
+            <FormIconButton
+              completed={formDone}
+              onClick={(e) => { e.stopPropagation(); onFormIconClick(receipt); }}
+            />
+          )}
+
+          {/* Desktop hover actions */}
+          <button
+            onClick={(e) => { e.stopPropagation(); onEditClick?.(receipt); }}
+            title="Edit receipt"
+            className="hidden md:flex flex-shrink-0 w-7 h-7 rounded-lg items-center justify-center transition-all opacity-0 group-hover:opacity-100"
+            style={{ color: "rgba(255,255,255,0.4)" }}
+            onMouseEnter={e => (e.currentTarget.style.color = "#00D6F2")}
+            onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.4)")}>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M2 14l1.5-5.5L11 1l3 3-7.5 7.5L2 14z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
+            </svg>
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); setConfirming(true); }}
+            title="Delete receipt"
+            className="hidden md:flex flex-shrink-0 w-7 h-7 rounded-lg items-center justify-center transition-all opacity-0 group-hover:opacity-100"
+            style={{ color: "rgba(255,255,255,0.4)" }}
+            onMouseEnter={e => (e.currentTarget.style.color = "#f87171")}
+            onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.4)")}>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M3 4h10M5 4V3h6v1M6 7v4M10 7v4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+              <rect x="3.5" y="4" width="9" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.4"/>
+            </svg>
+          </button>
+        </div>
       </div>
-    </div>
     </>
   );
 }
@@ -231,7 +276,7 @@ async function exportPDF(packet: Packet & { receipts: Receipt[] }, userName: str
   const PH  = 279.4;
   const ML  = 14;
   const MR  = 14;
-  const CW  = PW - ML - MR; // 187.9mm
+  const CW  = PW - ML - MR;
 
   const receipts = packet.receipts;
   const total    = receipts.reduce((s, r) => s + Number(r.amount), 0);
@@ -239,17 +284,15 @@ async function exportPDF(packet: Packet & { receipts: Receipt[] }, userName: str
   const fmtDate  = (d: string) =>
     new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
-  // Grid constants
   const COLS     = 3;
-  const COL_GAP  = 5;   // mm between columns
-  const ROW_GAP  = 8;   // mm between rows
-  const COL_W    = (CW - COL_GAP * (COLS - 1)) / COLS; // ≈ 59mm
-  const IMG_H    = 74;  // image cell height
-  const INFO_GAP = 2.5; // gap between image and info box
-  const INFO_H   = 24;  // info box height
+  const COL_GAP  = 5;
+  const ROW_GAP  = 8;
+  const COL_W    = (CW - COL_GAP * (COLS - 1)) / COLS;
+  const IMG_H    = 74;
+  const INFO_GAP = 2.5;
+  const INFO_H   = 24;
   const CELL_H   = IMG_H + INFO_GAP + INFO_H;
 
-  // Pre-fetch all images in parallel
   const imgCache: Record<string, Awaited<ReturnType<typeof fetchImgBase64>>> = {};
   await Promise.all(
     receipts.filter(r => r.image_url).map(async r => {
@@ -257,26 +300,21 @@ async function exportPDF(packet: Packet & { receipts: Receipt[] }, userName: str
     })
   );
 
-  /* ── Page header ── */
   const drawHeader = () => {
     doc.setFillColor(0, 40, 60);
     doc.rect(0, 0, PW, 36, "F");
     doc.setFillColor(0, 214, 242);
     doc.rect(0, 0, 4, 36, "F");
-
     doc.setTextColor(0, 214, 242);
     doc.setFontSize(7);
     doc.setFont("helvetica", "bold");
     doc.text("INSIGHT GLOBAL LLC", ML + 2, 9);
-
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(18);
     doc.text("Expense Receipt Packet", ML + 2, 21);
-
     doc.setFontSize(9);
     doc.setTextColor(0, 214, 242);
     doc.text(packet.label, PW - MR, 21, { align: "right" });
-
     doc.setFontSize(7.5);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(160, 200, 215);
@@ -286,7 +324,6 @@ async function exportPDF(packet: Packet & { receipts: Receipt[] }, userName: str
 
   drawHeader();
 
-  /* ── Summary bar ── */
   const photoCount = receipts.filter(r => r.source !== "bank_transaction").length;
   const bankCount  = receipts.length - photoCount;
 
@@ -295,12 +332,10 @@ async function exportPDF(packet: Packet & { receipts: Receipt[] }, userName: str
   doc.setDrawColor(220, 228, 236);
   doc.setLineWidth(0.3);
   doc.line(0, 51, PW, 51);
-
   doc.setFont("helvetica", "bold");
   doc.setFontSize(13);
   doc.setTextColor(0, 40, 60);
   doc.text(`$${total.toFixed(2)}`, ML + 2, 46);
-
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7.5);
   doc.setTextColor(100, 116, 139);
@@ -311,13 +346,10 @@ async function exportPDF(packet: Packet & { receipts: Receipt[] }, userName: str
 
   let y = 57;
 
-  /* ── Receipt grid (3 per row) ── */
-  // Group into rows
   const rows: (typeof receipts)[] = [];
   for (let i = 0; i < receipts.length; i += COLS) rows.push(receipts.slice(i, i + COLS));
 
   rows.forEach((row) => {
-    // Page break if row doesn't fit
     if (y + CELL_H > PH - 18) {
       pdfFooter(doc, PW, PH);
       doc.addPage();
@@ -330,15 +362,12 @@ async function exportPDF(packet: Packet & { receipts: Receipt[] }, userName: str
       const isBank   = r.source === "bank_transaction";
       const formDone = !!r.missing_receipt_form?.completed_at;
 
-      /* ── Image cell ── */
-      // Background
       doc.setFillColor(245, 247, 250);
       doc.setDrawColor(220, 228, 236);
       doc.setLineWidth(0.25);
       doc.rect(x, y, COL_W, IMG_H, "FD");
 
       if (img) {
-        // Scale to fit cell, centered
         let iW = COL_W - 2;
         let iH = (img.natH / img.natW) * iW;
         if (iH > IMG_H - 2) { iH = IMG_H - 2; iW = (img.natW / img.natH) * iH; }
@@ -346,14 +375,12 @@ async function exportPDF(packet: Packet & { receipts: Receipt[] }, userName: str
         const yImg = y + (IMG_H - iH) / 2;
         doc.addImage(img.data, img.fmt, xImg, yImg, iW, iH);
       } else if (isBank) {
-        // Bank placeholder
         const fd = r.missing_receipt_form;
         doc.setFont("helvetica", "bold");
         doc.setFontSize(6.5);
         doc.setTextColor(100, 116, 139);
         doc.text("BANK TRANSACTION", x + COL_W / 2, y + IMG_H / 2 - 6, { align: "center" });
         doc.text("No receipt image", x + COL_W / 2, y + IMG_H / 2 - 1, { align: "center" });
-
         const statusColor = formDone ? [22, 163, 74] : [180, 100, 0] as [number,number,number];
         doc.setTextColor(...statusColor as [number,number,number]);
         doc.setFontSize(7);
@@ -362,8 +389,6 @@ async function exportPDF(packet: Packet & { receipts: Receipt[] }, userName: str
           x + COL_W / 2, y + IMG_H / 2 + 6,
           { align: "center" }
         );
-
-        // Business purpose if available
         if (fd?.business_purpose) {
           doc.setFont("helvetica", "italic");
           doc.setFontSize(6);
@@ -372,44 +397,33 @@ async function exportPDF(packet: Packet & { receipts: Receipt[] }, userName: str
           doc.text(bpLines.slice(0, 2), x + COL_W / 2, y + IMG_H / 2 + 14, { align: "center" });
         }
       } else {
-        // No image
         doc.setFont("helvetica", "italic");
         doc.setFontSize(6.5);
         doc.setTextColor(160, 174, 192);
         doc.text("No image", x + COL_W / 2, y + IMG_H / 2, { align: "center" });
       }
 
-      /* ── Info box (below image, with gap) ── */
       const iy = y + IMG_H + INFO_GAP;
       doc.setFillColor(255, 255, 255);
       doc.setDrawColor(220, 228, 236);
       doc.setLineWidth(0.25);
       doc.rect(x, iy, COL_W, INFO_H, "FD");
-
-      // Cyan top accent line
       doc.setFillColor(0, 214, 242);
       doc.rect(x, iy, COL_W, 1.2, "F");
-
-      // Vendor + Amount (line 1)
       doc.setFont("helvetica", "bold");
       doc.setFontSize(7);
       doc.setTextColor(5, 15, 35);
       const vendorStr = doc.splitTextToSize(r.vendor_name, COL_W - 22)[0];
       doc.text(vendorStr, x + 3, iy + 6.5);
-
       doc.setFont("helvetica", "bold");
       doc.setFontSize(7);
       doc.setTextColor(0, 40, 60);
       doc.text(`$${Number(r.amount).toFixed(2)}`, x + COL_W - 3, iy + 6.5, { align: "right" });
-
-      // Date + Category (line 2)
       doc.setFont("helvetica", "normal");
       doc.setFontSize(6);
       doc.setTextColor(100, 116, 139);
       doc.text(fmtDate(r.transaction_date), x + 3, iy + 12.5);
       doc.text(cap(r.category), x + COL_W - 3, iy + 12.5, { align: "right" });
-
-      // Notes or source (line 3, lighter)
       doc.setFontSize(5.8);
       doc.setTextColor(160, 174, 192);
       if (r.notes) {
@@ -423,7 +437,6 @@ async function exportPDF(packet: Packet & { receipts: Receipt[] }, userName: str
     y += CELL_H + ROW_GAP;
   });
 
-  /* ── Grand total ── */
   if (y + 16 > PH - 18) { pdfFooter(doc, PW, PH); doc.addPage(); y = 16; }
   y += 2;
   doc.setDrawColor(0, 40, 60);
@@ -476,24 +489,35 @@ export default function PacketList({
   if (localPackets.length === 0) return (
     <div className="flex flex-col items-center justify-center py-24 text-center">
       <p className="text-2xl mb-3">📋</p>
-      <p className="text-gray-500 text-sm font-medium">No packets yet</p>
-      <p className="text-gray-400 text-xs mt-1">Add a receipt to get started</p>
+      <p className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.5)" }}>No packets yet</p>
+      <p className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.3)" }}>Add a receipt to get started</p>
       <Link href="/capture" className="mt-6 btn-primary max-w-[160px]">Add Receipt</Link>
     </div>
   );
 
   return (
     <>
+      {/* ── Alert banners ──────────────────────────────────────────────── */}
       {blockedReceipts.length > 0 && (
-        <div className="mb-4 px-4 py-3 rounded-2xl bg-red-50 border border-red-200">
-          <p className="text-xs font-semibold text-red-600">
+        <div
+          className="mb-4 px-4 py-3 rounded-2xl"
+          style={{
+            background: "linear-gradient(135deg, rgb(70,10,10) 0%, rgb(90,16,16) 100%)",
+            border: "1px solid rgba(239,68,68,0.35)",
+          }}>
+          <p className="text-xs font-semibold text-red-300">
             {blockedReceipts.length} receipt{blockedReceipts.length > 1 ? "s" : ""} overdue — remove before exporting
           </p>
         </div>
       )}
       {pendingForms.length > 0 && (
-        <div className="mb-4 px-4 py-3 rounded-2xl bg-yellow-50 border border-yellow-200">
-          <p className="text-xs font-semibold text-yellow-700">
+        <div
+          className="mb-4 px-4 py-3 rounded-2xl"
+          style={{
+            background: "linear-gradient(135deg, rgb(60,32,4) 0%, rgb(80,44,6) 100%)",
+            border: "1px solid rgba(245,158,11,0.35)",
+          }}>
+          <p className="text-xs font-semibold text-yellow-300">
             {pendingForms.length} missing receipt form{pendingForms.length > 1 ? "s" : ""} need attention — tap the 📋 icon
           </p>
         </div>
@@ -509,10 +533,11 @@ export default function PacketList({
 
           return (
             <div key={packet.id}>
+              {/* Packet header */}
               <div className="flex items-center justify-between mb-2 px-1">
                 <div>
-                  <h2 className="text-sm font-bold text-gray-900">{packet.label}</h2>
-                  <p className="text-[11px] text-gray-400">
+                  <h2 className="text-sm font-bold text-white">{packet.label}</h2>
+                  <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.4)" }}>
                     {new Date(packet.date_from).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                     {" – "}
                     {new Date(packet.date_to).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
@@ -520,8 +545,8 @@ export default function PacketList({
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-bold text-gray-900">${total.toFixed(2)}</p>
-                  <p className="text-[11px] text-gray-400">{receipts.length} receipts</p>
+                  <p className="text-sm font-bold text-white">${total.toFixed(2)}</p>
+                  <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.4)" }}>{receipts.length} receipts</p>
                 </div>
               </div>
 
@@ -537,17 +562,26 @@ export default function PacketList({
                 />
               ))}
 
+              {/* Export row */}
               <div className="flex items-center justify-end gap-2 mt-3">
                 {!canExport && (
-                  <p className="text-[11px] text-yellow-600 flex-1">
+                  <p className="text-[11px] flex-1" style={{ color: "rgba(245,158,11,0.85)" }}>
                     {hasPending ? "Complete forms to export" : "Remove overdue receipts first"}
                   </p>
                 )}
                 <button
                   disabled={!canExport}
-                  onClick={() => { if (canExport) { exportPDF(packet, userName); trackEvent("pdf_exported", { packet_id: packet.id, receipt_count: receipts.length }); } }}
-                  className={`px-5 py-2 rounded-xl text-xs font-bold transition-all
-                    ${canExport ? "bg-brand-cyan text-brand-navy hover:opacity-90" : "bg-gray-100 text-gray-400 cursor-not-allowed"}`}>
+                  onClick={() => {
+                    if (canExport) {
+                      exportPDF(packet, userName);
+                      trackEvent("pdf_exported", { packet_id: packet.id, receipt_count: receipts.length });
+                    }
+                  }}
+                  className="px-5 py-2 rounded-xl text-xs font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  style={canExport
+                    ? { background: "#00D6F2", color: "#00283C" }
+                    : { background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.3)", border: "1px solid rgba(255,255,255,0.1)" }
+                  }>
                   Export PDF
                 </button>
               </div>

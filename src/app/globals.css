@@ -73,7 +73,7 @@ html, body {
     width: 100%;
     max-width: 100%;
     overflow: hidden;
-    background: linear-gradient(135deg, rgba(10, 44, 68, 0.92) 0%, rgba(16, 62, 92, 0.88) 100%);
+    background: linear-gradient(135deg, rgb(10, 44, 68) 0%, rgb(16, 62, 92) 100%);
     border-radius: 16px;
     border: 1px solid rgba(0, 214, 242, 0.18);
     padding: 1rem;
@@ -84,7 +84,7 @@ html, body {
     width: 100%;
     max-width: 100%;
     overflow: hidden;
-    background: linear-gradient(135deg, rgba(12, 48, 74, 0.96) 0%, rgba(18, 68, 100, 0.92) 100%);
+    background: linear-gradient(135deg, rgb(12, 48, 74) 0%, rgb(18, 68, 100) 100%);
     border-radius: 20px;
     border: 1px solid rgba(0, 214, 242, 0.22);
     padding: 1rem;
