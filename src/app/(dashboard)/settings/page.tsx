@@ -4,22 +4,20 @@ import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { ALL_CITIES } from "@/lib/expense-schedule";
-import type { EmployeeType } from "@/types";
 
 export default function SettingsPage() {
-  const router  = useRouter();
+  const router   = useRouter();
   const supabase = createClient();
 
-  const [name,         setName]         = useState("");
-  const [email,        setEmail]        = useState("");
-  const [city,         setCity]         = useState("");
-  const [search,       setSearch]       = useState("");
-  const [showList,     setShowList]     = useState(false);
-  const [employeeType, setEmployeeType] = useState<EmployeeType>("external");
-  const [loading,      setLoading]      = useState(true);
-  const [saving,       setSaving]       = useState(false);
-  const [saved,        setSaved]        = useState(false);
-  const [error,        setError]        = useState("");
+  const [name,     setName]     = useState("");
+  const [email,    setEmail]    = useState("");
+  const [city,     setCity]     = useState("");
+  const [search,   setSearch]   = useState("");
+  const [showList, setShowList] = useState(false);
+  const [loading,  setLoading]  = useState(true);
+  const [saving,   setSaving]   = useState(false);
+  const [saved,    setSaved]    = useState(false);
+  const [error,    setError]    = useState("");
 
   const searchRef = useRef<HTMLDivElement>(null);
 
@@ -28,13 +26,12 @@ export default function SettingsPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push("/login"); return; }
       const { data: p } = await supabase
-        .from("users").select("name, email, city, employee_type").eq("id", user.id).single();
+        .from("users").select("name, email, city").eq("id", user.id).single();
       if (p) {
         setName(p.name ?? "");
         setEmail(p.email ?? user.email ?? "");
         setCity(p.city ?? "");
         setSearch(p.city ?? "");
-        setEmployeeType((p.employee_type as EmployeeType) ?? "external");
       }
       setLoading(false);
     }
@@ -59,7 +56,7 @@ export default function SettingsPage() {
       if (!user) return;
       const { error: err } = await supabase
         .from("users")
-        .update({ name, city: city || null, employee_type: employeeType })
+        .update({ name, city: city || null })
         .eq("id", user.id);
       if (err) throw err;
       setSaved(true);
@@ -118,7 +115,7 @@ export default function SettingsPage() {
           boxSizing: "border-box",
         }}>
 
-        {/* Avatar + info row */}
+        {/* Avatar + info */}
         <div className="flex items-center gap-3 mb-5">
           <div
             className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0"
@@ -134,10 +131,9 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* Divider */}
         <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", marginBottom: 20 }} />
 
-        {/* Name field */}
+        {/* Name */}
         <div className="mb-4">
           <label className="block text-[10px] font-semibold uppercase tracking-widest mb-1.5"
             style={{ color: "rgba(255,255,255,0.4)" }}>
@@ -147,7 +143,7 @@ export default function SettingsPage() {
             type="text"
             value={name}
             onChange={e => setName(e.target.value)}
-            className="w-full px-4 py-2.5 rounded-xl text-sm outline-none transition-colors"
+            className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
             style={{
               background: "rgba(255,255,255,0.07)",
               border: "1px solid rgba(0,214,242,0.2)",
@@ -178,36 +174,6 @@ export default function SettingsPage() {
           />
           <p className="text-[10px] mt-1" style={{ color: "rgba(255,255,255,0.3)" }}>
             Email cannot be changed here.
-          </p>
-        </div>
-
-        {/* ── Employee Type toggle ────────────────────────────────────────── */}
-        <div className="mb-4">
-          <label className="block text-[10px] font-semibold uppercase tracking-widest mb-2"
-            style={{ color: "rgba(255,255,255,0.4)" }}>
-            Employee Type
-          </label>
-          <div
-            className="flex w-full rounded-xl p-1"
-            style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}>
-            {(["external", "internal"] as EmployeeType[]).map(t => (
-              <button
-                key={t}
-                onClick={() => setEmployeeType(t)}
-                className="flex-1 py-2 rounded-lg text-xs font-semibold transition-all"
-                style={
-                  employeeType === t
-                    ? { background: "#00D6F2", color: "#00283C" }
-                    : { color: "rgba(255,255,255,0.45)" }
-                }>
-                {t === "internal" ? "Internal" : "External / Contractor"}
-              </button>
-            ))}
-          </div>
-          <p className="text-[10px] mt-1.5" style={{ color: "rgba(255,255,255,0.28)" }}>
-            {employeeType === "internal"
-              ? "Expenses must be submitted by 12:00 PM on Tuesdays."
-              : "Expenses must be submitted by 2:00 PM on Tuesdays."}
           </p>
         </div>
 
@@ -249,7 +215,7 @@ export default function SettingsPage() {
               value={search}
               onChange={e => { setSearch(e.target.value); setShowList(true); }}
               onFocus={() => setShowList(true)}
-              className="w-full px-4 py-2.5 rounded-xl text-sm outline-none transition-colors"
+              className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
               style={{
                 background: "rgba(255,255,255,0.07)",
                 border: "1px solid rgba(0,214,242,0.2)",
@@ -260,7 +226,6 @@ export default function SettingsPage() {
             />
           )}
 
-          {/* Dropdown list */}
           {showList && !city && (
             <div
               className="w-full mt-1 rounded-2xl overflow-hidden"
@@ -279,7 +244,7 @@ export default function SettingsPage() {
                   <button
                     key={c}
                     onClick={() => selectCity(c)}
-                    className="w-full text-left px-4 py-2.5 text-sm transition-colors"
+                    className="w-full text-left px-4 py-2.5 text-sm"
                     style={{ color: "rgba(255,255,255,0.8)" }}
                     onMouseEnter={e => (e.currentTarget.style.background = "rgba(0,214,242,0.1)")}
                     onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
@@ -295,9 +260,7 @@ export default function SettingsPage() {
           </p>
         </div>
 
-        {error && (
-          <p className="text-xs text-red-400 mb-3">{error}</p>
-        )}
+        {error && <p className="text-xs text-red-400 mb-3">{error}</p>}
 
         <button
           onClick={save}
@@ -311,7 +274,7 @@ export default function SettingsPage() {
       {/* ── Sign out ──────────────────────────────────────────────────────── */}
       <button
         onClick={signOut}
-        className="w-full py-2.5 rounded-xl text-sm font-medium transition-colors active:scale-[0.99]"
+        className="w-full py-2.5 rounded-xl text-sm font-medium"
         style={{
           background: "rgba(239,68,68,0.08)",
           border: "1px solid rgba(239,68,68,0.2)",

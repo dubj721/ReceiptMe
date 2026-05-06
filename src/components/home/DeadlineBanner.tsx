@@ -1,23 +1,27 @@
 import Link from "next/link";
 
 interface Props {
-  city:           string | null | undefined;
-  daysUntil:      number | null;
-  submissionDate: Date   | null;
-  iaReviewDate:   Date   | null;
-  cutoffTime:     string | null;
+  city:              string | null | undefined;
+  daysUntil:         number | null;
+  payrollRunDate:    Date   | null;
+  iaReviewStartDate: Date   | null;
+  nextCycleDate:     Date   | null | undefined;
+  cutoffTime:        string | null;
+  reviewStarted:     boolean;
 }
 
-function fmt(date: Date, opts: Intl.DateTimeFormatOptions): string {
-  return date.toLocaleDateString("en-US", opts);
+function fmtShort(date: Date): string {
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 export default function DeadlineBanner({
   city,
   daysUntil,
-  submissionDate,
-  iaReviewDate,
+  payrollRunDate,
+  iaReviewStartDate,
+  nextCycleDate,
   cutoffTime,
+  reviewStarted,
 }: Props) {
 
   // ── No city set yet ──────────────────────────────────────────────────────
@@ -41,7 +45,7 @@ export default function DeadlineBanner({
   }
 
   // ── City set but not found in schedule ───────────────────────────────────
-  if (daysUntil === null || submissionDate === null || iaReviewDate === null) {
+  if (daysUntil === null || payrollRunDate === null || iaReviewStartDate === null) {
     return (
       <div
         className="w-full rounded-2xl p-6 text-center"
@@ -78,7 +82,7 @@ export default function DeadlineBanner({
     bgGradient  = "linear-gradient(135deg, rgba(8,38,60,0.95) 0%, rgba(14,58,88,0.92) 100%)";
   }
 
-  // ── Headline copy ────────────────────────────────────────────────────────
+  // ── Headline ─────────────────────────────────────────────────────────────
   let headline: React.ReactNode;
 
   if (daysUntil < 0) {
@@ -100,36 +104,48 @@ export default function DeadlineBanner({
     );
   }
 
-  const subDay = fmt(submissionDate, { weekday: "short", month: "short", day: "numeric" });
-  const iaDay  = fmt(iaReviewDate,   { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+  // ── Review window label ───────────────────────────────────────────────────
+  const reviewLabel = daysUntil < 0
+    ? "Review closed"
+    : reviewStarted
+      ? "Review began"
+      : "Review begins";
 
   return (
     <div
       className="w-full rounded-2xl px-6 py-7 text-center"
       style={{ background: bgGradient }}>
 
-      {/* Primary headline */}
+      {/* ── Big countdown ─────────────────────────────────────────────── */}
       <p className="font-black leading-tight" style={{ fontSize: 28, letterSpacing: "-0.02em" }}>
         {headline}
       </p>
 
-      {/* Submission deadline + time cutoff */}
-      <p className="mt-2 text-sm font-semibold" style={{ color: "rgba(255,255,255,0.75)" }}>
-        {daysUntil < 0 ? "Was due" : "Submit by"}{" "}
-        <span style={{ color: accentColor }}>{subDay}</span>
+      {/* ── Review window + hard deadline ─────────────────────────────── */}
+      <p className="mt-2.5 text-xs font-medium" style={{ color: "rgba(255,255,255,0.55)" }}>
+        <span>{reviewLabel} </span>
+        <span style={{ color: accentColor, fontWeight: 600 }}>{fmtShort(iaReviewStartDate)}</span>
+        <span style={{ color: "rgba(255,255,255,0.3)" }}> · </span>
+        <span>Due </span>
+        <span style={{ color: accentColor, fontWeight: 600 }}>{fmtShort(payrollRunDate)}</span>
         {cutoffTime && (
-          <span style={{ color: "rgba(255,255,255,0.5)" }}> · {cutoffTime}</span>
+          <span style={{ color: "rgba(255,255,255,0.4)" }}> by {cutoffTime}</span>
         )}
       </p>
 
-      {/* IA Review date */}
-      <p className="mt-1 text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>
-        IA Review: {iaDay}
-      </p>
+      {/* ── Next cycle ────────────────────────────────────────────────── */}
+      {nextCycleDate && (
+        <p className="mt-1 text-xs" style={{ color: "rgba(255,255,255,0.32)" }}>
+          Next cycle begins{" "}
+          <span style={{ color: "rgba(255,255,255,0.52)" }}>
+            {fmtShort(nextCycleDate)}
+          </span>
+        </p>
+      )}
 
-      {/* City label */}
-      <p className="mt-1.5 text-[10px] uppercase tracking-widest font-semibold"
-        style={{ color: "rgba(255,255,255,0.22)" }}>
+      {/* ── City label ────────────────────────────────────────────────── */}
+      <p className="mt-2 text-[10px] uppercase tracking-widest font-semibold"
+        style={{ color: "rgba(255,255,255,0.2)" }}>
         {city}
       </p>
     </div>

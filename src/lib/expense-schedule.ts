@@ -1,18 +1,21 @@
 /**
  * Insight Global Q2 2026 Expense Schedule
  *
- * Four city groups, each with their own monthly IA Review (submission) deadlines.
+ * Four city groups, each with their own monthly IA Review windows.
  *
- * SUBMISSION CUTOFFS (relative to the Wednesday IA Review date):
- *   • US External  — Tuesday 2:00 PM  (1 day before IA Review)
- *   • US Internal  — Tuesday 12:00 PM (1 day before IA Review, noon)
- *   • Canadian     — Monday  EOD      (2 days before IA Review)
+ * HOW THE CYCLE WORKS (using Atlanta Sales / Group 2 as the example):
+ *   - IA Review begins Wednesday 5/6 (day after payroll runs)
+ *   - Review window runs through Tuesday 5/12
+ *   - Payroll runs Tuesday 5/12 — system locks at 2:00 PM, no reviews after
+ *   - Canadian employees: cannot be reviewed on Tuesdays at all; due Monday 5/11 by 5:00 PM ET
+ *   - Next cycle begins Wednesday 6/3
  *
- * Source: Official Q2 2026 Expense Schedule (April – June 2026)
+ * The GROUP_DATES below are the IA Review START dates (all Wednesdays).
+ * Payroll run date = IA Review start + 6 days (following Tuesday) for US.
+ * Payroll run date = IA Review start + 5 days (following Monday) for CA.
+ *
  * Add Q3+ dates to GROUP_DATES when the new schedule is published.
  */
-
-import type { EmployeeType } from "@/types";
 
 // ── City → group number ─────────────────────────────────────────────────────
 
@@ -100,8 +103,7 @@ const CITY_TO_GROUP: Record<string, 1 | 2 | 3 | 4> = {
   "Omaha":             4,
 };
 
-// ── IA Review dates per group (Q2 2026) ────────────────────────────────────
-// All IA Review dates fall on Wednesdays.
+// ── IA Review START dates per group (Q2 2026, all Wednesdays) ──────────────
 // Add Q3 2026 rows when the next schedule is published.
 const GROUP_DATES: Record<1 | 2 | 3 | 4, Date[]> = {
   1: [
@@ -126,51 +128,32 @@ const GROUP_DATES: Record<1 | 2 | 3 | 4, Date[]> = {
   ],
 };
 
-// ── Helpers ────────────────────────────────────────────────────────────────
+// ── Public types ───────────────────────────────────────────────────────────
 
-/**
- * Given an IA Review date (Wednesday), returns the submission deadline date.
- * US employees: Tuesday (1 day before)
- * Canadian employees: Monday (2 days before)
- */
-function submissionDateFor(iaDate: Date, country: "US" | "CA"): Date {
-  const d = new Date(iaDate);
-  d.setDate(d.getDate() - (country === "CA" ? 2 : 1));
-  return d;
-}
-
-/**
- * The display time cutoff label shown in the banner.
- * CA: "End of Day"  |  US Internal: "12:00 PM"  |  US External: "2:00 PM"
- */
-function cutoffTimeFor(country: "US" | "CA", employeeType: EmployeeType): string {
-  if (country === "CA") return "End of Day";
-  return employeeType === "internal" ? "12:00 PM" : "2:00 PM";
+export interface DeadlineResult {
+  /** Hard submission deadline: Tuesday 2pm (US) or Monday EOD (CA). */
+  payrollRunDate:    Date;
+  /** The Wednesday the IA Review window opened / opens. */
+  iaReviewStartDate: Date;
+  /** The Wednesday the next cycle's IA Review begins (null = end of schedule). */
+  nextCycleDate:     Date | null;
+  /** Days from today to payrollRunDate. 0 = due today, <0 = past due. */
+  daysUntil:         number;
+  /** Display string for the time cutoff: "2:00 PM" or "End of Day". */
+  cutoffTime:        string;
+  /** True when today >= iaReviewStartDate (review window is open). */
+  reviewStarted:     boolean;
 }
 
 // ── Public API ─────────────────────────────────────────────────────────────
 
-export interface DeadlineResult {
-  /** The date the employee must submit by (Tuesday US, Monday CA). */
-  submissionDate: Date;
-  /** The Wednesday IA Review date for display purposes. */
-  iaReviewDate: Date;
-  /** Days from today to submissionDate. 0 = due today, <0 = past due. */
-  daysUntil: number;
-  /** Human-readable time cutoff, e.g. "2:00 PM", "12:00 PM", "End of Day". */
-  cutoffTime: string;
-}
-
 /**
- * Returns the next upcoming submission deadline for the given city/country/type.
- * "Next upcoming" = the first submissionDate that has not yet passed.
- * If all dates have passed, returns the last one (with negative daysUntil).
+ * Returns deadline info for the next (or current) review cycle.
  * Returns null if city is missing or not in the schedule.
  */
 export function getNextDeadline(
-  city: string | null | undefined,
+  city:    string | null | undefined,
   country: "US" | "CA" = "US",
-  employeeType: EmployeeType = "external",
 ): DeadlineResult | null {
   if (!city) return null;
 
@@ -180,29 +163,51 @@ export function getNextDeadline(
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const cutoffTime = cutoffTimeFor(country, employeeType);
+  // US: payroll runs the following Tuesday (+6 days from Wednesday IA Review start)
+  // CA: submit by preceding Monday (+5 days), so they're reviewed before payroll closes
+  const payrollOffset = country === "CA" ? 5 : 6;
+  const cutoffTime    = country === "CA" ? "5:00 PM ET" : "2:00 PM";
 
-  for (const raw of GROUP_DATES[group]) {
-    const iaDate = new Date(raw);
+  const dates = GROUP_DATES[group];
+
+  for (let i = 0; i < dates.length; i++) {
+    const iaDate = new Date(dates[i]);
     iaDate.setHours(0, 0, 0, 0);
 
-    const subDate = submissionDateFor(iaDate, country);
-    subDate.setHours(0, 0, 0, 0);
+    const payrollDate = new Date(iaDate);
+    payrollDate.setDate(payrollDate.getDate() + payrollOffset);
+    payrollDate.setHours(0, 0, 0, 0);
 
-    const diff = Math.round((subDate.getTime() - today.getTime()) / 86_400_000);
+    const diff = Math.round((payrollDate.getTime() - today.getTime()) / 86_400_000);
+
     if (diff >= 0) {
-      return { submissionDate: subDate, iaReviewDate: iaDate, daysUntil: diff, cutoffTime };
+      return {
+        payrollRunDate:    payrollDate,
+        iaReviewStartDate: iaDate,
+        nextCycleDate:     i + 1 < dates.length ? new Date(dates[i + 1]) : null,
+        daysUntil:         diff,
+        cutoffTime,
+        reviewStarted:     today >= iaDate,
+      };
     }
   }
 
-  // All submission dates have passed — return the last one (negative diff)
-  const lastIa = new Date(GROUP_DATES[group][GROUP_DATES[group].length - 1]);
+  // All cycles have passed — return last (past due state)
+  const lastIa = new Date(dates[dates.length - 1]);
   lastIa.setHours(0, 0, 0, 0);
-  const lastSub = submissionDateFor(lastIa, country);
-  lastSub.setHours(0, 0, 0, 0);
-  const diff = Math.round((lastSub.getTime() - today.getTime()) / 86_400_000);
+  const lastPayroll = new Date(lastIa);
+  lastPayroll.setDate(lastPayroll.getDate() + payrollOffset);
+  lastPayroll.setHours(0, 0, 0, 0);
+  const diff = Math.round((lastPayroll.getTime() - today.getTime()) / 86_400_000);
 
-  return { submissionDate: lastSub, iaReviewDate: lastIa, daysUntil: diff, cutoffTime };
+  return {
+    payrollRunDate:    lastPayroll,
+    iaReviewStartDate: lastIa,
+    nextCycleDate:     null,
+    daysUntil:         diff,
+    cutoffTime,
+    reviewStarted:     true,
+  };
 }
 
 /** Sorted list of every city/office for the Settings dropdown. */

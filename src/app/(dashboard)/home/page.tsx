@@ -37,15 +37,16 @@ export default async function HomePage() {
 
   const recent = receipts.slice(0, 5);
 
-  // Expense deadline — accounts for country and employee type
-  const country      = (typedProfile?.country ?? "US") as "US" | "CA";
-  const employeeType = typedProfile?.employee_type ?? "external";
-  const deadline     = getNextDeadline(typedProfile?.city, country, employeeType);
+  // Expense deadline — based on office city and country
+  const country  = (typedProfile?.country ?? "US") as "US" | "CA";
+  const deadline = getNextDeadline(typedProfile?.city, country);
 
-  const daysUntil      = deadline?.daysUntil      ?? null;
-  const submissionDate = deadline?.submissionDate  ?? null;
-  const iaReviewDate   = deadline?.iaReviewDate    ?? null;
-  const cutoffTime     = deadline?.cutoffTime      ?? null;
+  const daysUntil         = deadline?.daysUntil         ?? null;
+  const payrollRunDate    = deadline?.payrollRunDate     ?? null;
+  const iaReviewStartDate = deadline?.iaReviewStartDate  ?? null;
+  const nextCycleDate     = deadline?.nextCycleDate      ?? null;
+  const cutoffTime        = deadline?.cutoffTime         ?? null;
+  const reviewStarted     = deadline?.reviewStarted      ?? false;
 
   return (
     <div className="w-full px-4 pt-3 pb-8" style={{ boxSizing: "border-box" }}>
@@ -61,9 +62,11 @@ export default async function HomePage() {
         <DeadlineBanner
           city={typedProfile?.city}
           daysUntil={daysUntil}
-          submissionDate={submissionDate}
-          iaReviewDate={iaReviewDate}
+          payrollRunDate={payrollRunDate}
+          iaReviewStartDate={iaReviewStartDate}
+          nextCycleDate={nextCycleDate}
           cutoffTime={cutoffTime}
+          reviewStarted={reviewStarted}
         />
 
         {/* ── Alert banners ──────────────────────────────────────────────── */}
