@@ -75,8 +75,8 @@ export default function TopBar({ profile }: { profile: (User & { is_admin?: bool
       <div
         className="w-full flex items-center gap-3 px-4"
         style={{
-          paddingTop: "max(48px, env(safe-area-inset-top, 48px))",
-          paddingBottom: 14,
+          paddingTop: "max(14px, env(safe-area-inset-top, 14px))",
+          paddingBottom: 10,
           background: "transparent",
         }}>
 
@@ -84,7 +84,7 @@ export default function TopBar({ profile }: { profile: (User & { is_admin?: bool
         <div className="flex-shrink-0 relative" ref={menuRef}>
           <button
             onClick={() => setOpen(o => !o)}
-            className="w-10 h-10 rounded-full flex items-center justify-center active:scale-95 transition-transform"
+            className="w-9 h-9 rounded-full flex items-center justify-center active:scale-95 transition-transform"
             style={{
               background: "linear-gradient(135deg, #005070 0%, #007fa0 100%)",
               border: "2px solid rgba(0,214,242,0.45)",
@@ -160,7 +160,7 @@ export default function TopBar({ profile }: { profile: (User & { is_admin?: bool
 
         {/* ── Right: notifications bell (wired up later) ── */}
         <button
-          className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center active:scale-95 transition-transform"
+          className="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center active:scale-95 transition-transform"
           style={{
             background: "rgba(255,255,255,0.07)",
             border: "1px solid rgba(255,255,255,0.12)",
