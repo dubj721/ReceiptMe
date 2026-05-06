@@ -2,12 +2,17 @@
  * Insight Global Q2 2026 Expense Schedule
  *
  * Four city groups, each with their own monthly IA Review (submission) deadlines.
- * The IA Review date is when the employee's expense report must be submitted
- * and manager-approved to be included in that month's payroll run.
+ *
+ * SUBMISSION CUTOFFS (relative to the Wednesday IA Review date):
+ *   • US External  — Tuesday 2:00 PM  (1 day before IA Review)
+ *   • US Internal  — Tuesday 12:00 PM (1 day before IA Review, noon)
+ *   • Canadian     — Monday  EOD      (2 days before IA Review)
  *
  * Source: Official Q2 2026 Expense Schedule (April – June 2026)
  * Add Q3+ dates to GROUP_DATES when the new schedule is published.
  */
+
+import type { EmployeeType } from "@/types";
 
 // ── City → group number ─────────────────────────────────────────────────────
 
@@ -96,6 +101,7 @@ const CITY_TO_GROUP: Record<string, 1 | 2 | 3 | 4> = {
 };
 
 // ── IA Review dates per group (Q2 2026) ────────────────────────────────────
+// All IA Review dates fall on Wednesdays.
 // Add Q3 2026 rows when the next schedule is published.
 const GROUP_DATES: Record<1 | 2 | 3 | 4, Date[]> = {
   1: [
@@ -120,16 +126,52 @@ const GROUP_DATES: Record<1 | 2 | 3 | 4, Date[]> = {
   ],
 };
 
-// ── Public API ─────────────────────────────────────────────────────────────
+// ── Helpers ────────────────────────────────────────────────────────────────
 
 /**
- * Returns the next upcoming IA Review deadline for a given city.
- * daysUntil = 0 → due today, < 0 → already past.
- * Returns null if the city is not in the schedule.
+ * Given an IA Review date (Wednesday), returns the submission deadline date.
+ * US employees: Tuesday (1 day before)
+ * Canadian employees: Monday (2 days before)
+ */
+function submissionDateFor(iaDate: Date, country: "US" | "CA"): Date {
+  const d = new Date(iaDate);
+  d.setDate(d.getDate() - (country === "CA" ? 2 : 1));
+  return d;
+}
+
+/**
+ * The display time cutoff label shown in the banner.
+ * CA: "End of Day"  |  US Internal: "12:00 PM"  |  US External: "2:00 PM"
+ */
+function cutoffTimeFor(country: "US" | "CA", employeeType: EmployeeType): string {
+  if (country === "CA") return "End of Day";
+  return employeeType === "internal" ? "12:00 PM" : "2:00 PM";
+}
+
+// ── Public API ─────────────────────────────────────────────────────────────
+
+export interface DeadlineResult {
+  /** The date the employee must submit by (Tuesday US, Monday CA). */
+  submissionDate: Date;
+  /** The Wednesday IA Review date for display purposes. */
+  iaReviewDate: Date;
+  /** Days from today to submissionDate. 0 = due today, <0 = past due. */
+  daysUntil: number;
+  /** Human-readable time cutoff, e.g. "2:00 PM", "12:00 PM", "End of Day". */
+  cutoffTime: string;
+}
+
+/**
+ * Returns the next upcoming submission deadline for the given city/country/type.
+ * "Next upcoming" = the first submissionDate that has not yet passed.
+ * If all dates have passed, returns the last one (with negative daysUntil).
+ * Returns null if city is missing or not in the schedule.
  */
 export function getNextDeadline(
   city: string | null | undefined,
-): { date: Date; daysUntil: number } | null {
+  country: "US" | "CA" = "US",
+  employeeType: EmployeeType = "external",
+): DeadlineResult | null {
   if (!city) return null;
 
   const group = CITY_TO_GROUP[city];
@@ -138,21 +180,29 @@ export function getNextDeadline(
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const dates = GROUP_DATES[group];
+  const cutoffTime = cutoffTimeFor(country, employeeType);
 
-  // Walk forward through scheduled dates
-  for (const raw of dates) {
-    const d = new Date(raw);
-    d.setHours(0, 0, 0, 0);
-    const diff = Math.round((d.getTime() - today.getTime()) / 86_400_000);
-    if (diff >= 0) return { date: d, daysUntil: diff };
+  for (const raw of GROUP_DATES[group]) {
+    const iaDate = new Date(raw);
+    iaDate.setHours(0, 0, 0, 0);
+
+    const subDate = submissionDateFor(iaDate, country);
+    subDate.setHours(0, 0, 0, 0);
+
+    const diff = Math.round((subDate.getTime() - today.getTime()) / 86_400_000);
+    if (diff >= 0) {
+      return { submissionDate: subDate, iaReviewDate: iaDate, daysUntil: diff, cutoffTime };
+    }
   }
 
-  // All dates have passed — return last one with negative diff
-  const last = new Date(dates[dates.length - 1]);
-  last.setHours(0, 0, 0, 0);
-  const diff = Math.round((last.getTime() - today.getTime()) / 86_400_000);
-  return { date: last, daysUntil: diff };
+  // All submission dates have passed — return the last one (negative diff)
+  const lastIa = new Date(GROUP_DATES[group][GROUP_DATES[group].length - 1]);
+  lastIa.setHours(0, 0, 0, 0);
+  const lastSub = submissionDateFor(lastIa, country);
+  lastSub.setHours(0, 0, 0, 0);
+  const diff = Math.round((lastSub.getTime() - today.getTime()) / 86_400_000);
+
+  return { submissionDate: lastSub, iaReviewDate: lastIa, daysUntil: diff, cutoffTime };
 }
 
 /** Sorted list of every city/office for the Settings dropdown. */

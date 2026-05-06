@@ -12,12 +12,15 @@ export type NotificationType = "day_55_warning" | "day_60_overdue" | "day_61_arc
 
 export type NotificationChannel = "in_app" | "email";
 
+export type EmployeeType = "internal" | "external";
+
 export interface User {
   id: string;
   email: string;
   name: string;
   country: Country;
   city?: string | null;
+  employee_type?: EmployeeType | null;
   concur_connected: boolean;
   created_at: string;
 }

@@ -4,20 +4,22 @@ import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { ALL_CITIES } from "@/lib/expense-schedule";
+import type { EmployeeType } from "@/types";
 
 export default function SettingsPage() {
-  const router = useRouter();
+  const router  = useRouter();
   const supabase = createClient();
 
-  const [name,    setName]    = useState("");
-  const [email,   setEmail]   = useState("");
-  const [city,    setCity]    = useState("");        // saved value
-  const [search,  setSearch]  = useState("");        // text in the search input
-  const [showList, setShowList] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [saving,  setSaving]  = useState(false);
-  const [saved,   setSaved]   = useState(false);
-  const [error,   setError]   = useState("");
+  const [name,         setName]         = useState("");
+  const [email,        setEmail]        = useState("");
+  const [city,         setCity]         = useState("");
+  const [search,       setSearch]       = useState("");
+  const [showList,     setShowList]     = useState(false);
+  const [employeeType, setEmployeeType] = useState<EmployeeType>("external");
+  const [loading,      setLoading]      = useState(true);
+  const [saving,       setSaving]       = useState(false);
+  const [saved,        setSaved]        = useState(false);
+  const [error,        setError]        = useState("");
 
   const searchRef = useRef<HTMLDivElement>(null);
 
@@ -26,12 +28,13 @@ export default function SettingsPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push("/login"); return; }
       const { data: p } = await supabase
-        .from("users").select("name, email, city").eq("id", user.id).single();
+        .from("users").select("name, email, city, employee_type").eq("id", user.id).single();
       if (p) {
         setName(p.name ?? "");
         setEmail(p.email ?? user.email ?? "");
         setCity(p.city ?? "");
         setSearch(p.city ?? "");
+        setEmployeeType((p.employee_type as EmployeeType) ?? "external");
       }
       setLoading(false);
     }
@@ -55,7 +58,9 @@ export default function SettingsPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       const { error: err } = await supabase
-        .from("users").update({ name, city: city || null }).eq("id", user.id);
+        .from("users")
+        .update({ name, city: city || null, employee_type: employeeType })
+        .eq("id", user.id);
       if (err) throw err;
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
@@ -176,6 +181,36 @@ export default function SettingsPage() {
           </p>
         </div>
 
+        {/* ── Employee Type toggle ────────────────────────────────────────── */}
+        <div className="mb-4">
+          <label className="block text-[10px] font-semibold uppercase tracking-widest mb-2"
+            style={{ color: "rgba(255,255,255,0.4)" }}>
+            Employee Type
+          </label>
+          <div
+            className="flex w-full rounded-xl p-1"
+            style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}>
+            {(["external", "internal"] as EmployeeType[]).map(t => (
+              <button
+                key={t}
+                onClick={() => setEmployeeType(t)}
+                className="flex-1 py-2 rounded-lg text-xs font-semibold transition-all"
+                style={
+                  employeeType === t
+                    ? { background: "#00D6F2", color: "#00283C" }
+                    : { color: "rgba(255,255,255,0.45)" }
+                }>
+                {t === "internal" ? "Internal" : "External / Contractor"}
+              </button>
+            ))}
+          </div>
+          <p className="text-[10px] mt-1.5" style={{ color: "rgba(255,255,255,0.28)" }}>
+            {employeeType === "internal"
+              ? "Expenses must be submitted by 12:00 PM on Tuesdays."
+              : "Expenses must be submitted by 2:00 PM on Tuesdays."}
+          </p>
+        </div>
+
         {/* ── Office City picker ──────────────────────────────────────────── */}
         <div className="mb-5" ref={searchRef}>
           <label className="block text-[10px] font-semibold uppercase tracking-widest mb-1.5"
@@ -183,7 +218,6 @@ export default function SettingsPage() {
             Office City
           </label>
 
-          {/* Selected pill OR search input */}
           {city ? (
             <div className="flex items-center gap-2">
               <div

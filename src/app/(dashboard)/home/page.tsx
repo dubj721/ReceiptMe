@@ -37,10 +37,15 @@ export default async function HomePage() {
 
   const recent = receipts.slice(0, 5);
 
-  // Expense deadline for this user's city
-  const deadline   = getNextDeadline(typedProfile?.city);
-  const daysUntil  = deadline?.daysUntil ?? null;
-  const dueDate    = deadline?.date      ?? null;
+  // Expense deadline — accounts for country and employee type
+  const country      = (typedProfile?.country ?? "US") as "US" | "CA";
+  const employeeType = typedProfile?.employee_type ?? "external";
+  const deadline     = getNextDeadline(typedProfile?.city, country, employeeType);
+
+  const daysUntil      = deadline?.daysUntil      ?? null;
+  const submissionDate = deadline?.submissionDate  ?? null;
+  const iaReviewDate   = deadline?.iaReviewDate    ?? null;
+  const cutoffTime     = deadline?.cutoffTime      ?? null;
 
   return (
     <div className="w-full px-4 pt-3 pb-8" style={{ boxSizing: "border-box" }}>
@@ -56,7 +61,9 @@ export default async function HomePage() {
         <DeadlineBanner
           city={typedProfile?.city}
           daysUntil={daysUntil}
-          dueDate={dueDate}
+          submissionDate={submissionDate}
+          iaReviewDate={iaReviewDate}
+          cutoffTime={cutoffTime}
         />
 
         {/* ── Alert banners ──────────────────────────────────────────────── */}

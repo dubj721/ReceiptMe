@@ -1,21 +1,24 @@
 import Link from "next/link";
 
 interface Props {
-  city:       string | null | undefined;
-  daysUntil:  number | null;
-  dueDate:    Date   | null;
+  city:           string | null | undefined;
+  daysUntil:      number | null;
+  submissionDate: Date   | null;
+  iaReviewDate:   Date   | null;
+  cutoffTime:     string | null;
 }
 
-function formatDueDate(date: Date): string {
-  return date.toLocaleDateString("en-US", {
-    weekday: "long",
-    month:   "long",
-    day:     "numeric",
-    year:    "numeric",
-  });
+function fmt(date: Date, opts: Intl.DateTimeFormatOptions): string {
+  return date.toLocaleDateString("en-US", opts);
 }
 
-export default function DeadlineBanner({ city, daysUntil, dueDate }: Props) {
+export default function DeadlineBanner({
+  city,
+  daysUntil,
+  submissionDate,
+  iaReviewDate,
+  cutoffTime,
+}: Props) {
 
   // ── No city set yet ──────────────────────────────────────────────────────
   if (!city) {
@@ -38,7 +41,7 @@ export default function DeadlineBanner({ city, daysUntil, dueDate }: Props) {
   }
 
   // ── City set but not found in schedule ───────────────────────────────────
-  if (daysUntil === null || dueDate === null) {
+  if (daysUntil === null || submissionDate === null || iaReviewDate === null) {
     return (
       <div
         className="w-full rounded-2xl p-6 text-center"
@@ -59,23 +62,18 @@ export default function DeadlineBanner({ city, daysUntil, dueDate }: Props) {
   let bgGradient:  string;
 
   if (daysUntil < 0) {
-    // Past due
     accentColor = "#f87171";
     bgGradient  = "linear-gradient(135deg, rgba(80,10,10,0.9) 0%, rgba(100,20,20,0.85) 100%)";
   } else if (daysUntil === 0) {
-    // Due today
     accentColor = "#fb923c";
     bgGradient  = "linear-gradient(135deg, rgba(80,30,5,0.9) 0%, rgba(100,45,10,0.85) 100%)";
   } else if (daysUntil <= 3) {
-    // 1–3 days — urgent
     accentColor = "#fb923c";
     bgGradient  = "linear-gradient(135deg, rgba(60,25,5,0.92) 0%, rgba(80,38,8,0.88) 100%)";
   } else if (daysUntil <= 7) {
-    // 4–7 days — warning
     accentColor = "#fbbf24";
     bgGradient  = "linear-gradient(135deg, rgba(50,35,5,0.92) 0%, rgba(70,52,8,0.88) 100%)";
   } else {
-    // 8+ days — normal
     accentColor = "#00D6F2";
     bgGradient  = "linear-gradient(135deg, rgba(8,38,60,0.95) 0%, rgba(14,58,88,0.92) 100%)";
   }
@@ -102,6 +100,9 @@ export default function DeadlineBanner({ city, daysUntil, dueDate }: Props) {
     );
   }
 
+  const subDay = fmt(submissionDate, { weekday: "short", month: "short", day: "numeric" });
+  const iaDay  = fmt(iaReviewDate,   { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+
   return (
     <div
       className="w-full rounded-2xl px-6 py-7 text-center"
@@ -112,14 +113,23 @@ export default function DeadlineBanner({ city, daysUntil, dueDate }: Props) {
         {headline}
       </p>
 
-      {/* Due date */}
-      <p className="mt-2 text-sm font-medium" style={{ color: "rgba(255,255,255,0.5)" }}>
-        {daysUntil < 0 ? "Was due" : "Due"} {formatDueDate(dueDate)} · IA Review
+      {/* Submission deadline + time cutoff */}
+      <p className="mt-2 text-sm font-semibold" style={{ color: "rgba(255,255,255,0.75)" }}>
+        {daysUntil < 0 ? "Was due" : "Submit by"}{" "}
+        <span style={{ color: accentColor }}>{subDay}</span>
+        {cutoffTime && (
+          <span style={{ color: "rgba(255,255,255,0.5)" }}> · {cutoffTime}</span>
+        )}
+      </p>
+
+      {/* IA Review date */}
+      <p className="mt-1 text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>
+        IA Review: {iaDay}
       </p>
 
       {/* City label */}
-      <p className="mt-1 text-[10px] uppercase tracking-widest font-semibold"
-        style={{ color: "rgba(255,255,255,0.28)" }}>
+      <p className="mt-1.5 text-[10px] uppercase tracking-widest font-semibold"
+        style={{ color: "rgba(255,255,255,0.22)" }}>
         {city}
       </p>
     </div>
