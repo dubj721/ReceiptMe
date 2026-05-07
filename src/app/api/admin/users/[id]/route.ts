@@ -43,6 +43,12 @@ export async function PATCH(
   if (!me?.is_admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = await params;
+
+  // Prevent admins from removing their own admin access
+  if (id === user.id) {
+    return NextResponse.json({ error: "You cannot change your own admin status." }, { status: 400 });
+  }
+
   const body = await req.json();
   const allowed = ["is_admin"];
   const updates: Record<string, unknown> = {};
