@@ -77,7 +77,7 @@ export default function TopBar({ profile }: { profile: (User & { is_admin?: bool
         style={{
           paddingTop: "max(14px, env(safe-area-inset-top, 14px))",
           paddingBottom: 10,
-          background: "transparent",
+          background: "#00283C",
         }}>
 
         {/* ── Left: avatar — tap to open account menu ── */}

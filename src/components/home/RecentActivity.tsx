@@ -62,15 +62,15 @@ export default function RecentActivity({ receipts, country }: {
                 <div
                   className="mb-1 px-4 py-2.5 rounded-2xl flex items-center justify-between gap-3"
                   style={{
-                    background: "rgba(239,68,68,0.15)",
-                    border: "1px solid rgba(239,68,68,0.3)",
+                    background: "#fef2f2",
+                    border: "1px solid rgba(239,68,68,0.25)",
                   }}>
-                  <p className="text-xs font-semibold text-red-300">Delete this receipt?</p>
+                  <p className="text-xs font-semibold text-red-600">Delete this receipt?</p>
                   <div className="flex gap-2">
                     <button
                       onClick={() => setConfirming(null)}
-                      className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white/70"
-                      style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.15)" }}>
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-600"
+                      style={{ background: "#f1f5f9", border: "1px solid #e2e8f0" }}>
                       Cancel
                     </button>
                     <button
@@ -86,11 +86,10 @@ export default function RecentActivity({ receipts, country }: {
               <div
                 className="group card flex items-center gap-3 transition-all"
                 style={warn ? {
-                  background: "linear-gradient(135deg, rgb(60, 32, 4) 0%, rgb(80, 44, 6) 100%)",
-                  borderColor: "rgba(245,158,11,0.4)",
-                } : {
-                  boxShadow: "0 2px 12px rgba(0,0,0,0.25)",
-                }}>
+                  background: "#fffbeb",
+                  borderColor: "rgba(245,158,11,0.35)",
+                  boxShadow: "0 2px 8px rgba(245,158,11,0.1)",
+                } : {}}>
 
                 {/* Tap to view */}
                 <button
@@ -98,17 +97,17 @@ export default function RecentActivity({ receipts, country }: {
                   className="flex items-center gap-3 flex-1 min-w-0 text-left">
                   <div
                     className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 text-lg"
-                    style={{ background: "rgba(255,255,255,0.1)" }}>
+                    style={{ background: "#f1f5f9" }}>
                     {categoryEmoji[r.category] ?? "📄"}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-white truncate">{r.vendor_name}</p>
-                    <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.5)" }}>
+                    <p className="text-sm font-semibold truncate" style={{ color: "#00283C" }}>{r.vendor_name}</p>
+                    <p className="text-[11px] text-gray-400">
                       {new Date(r.transaction_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                       {" · "}{r.category}
                     </p>
                   </div>
-                  <p className="text-sm font-bold text-white flex-shrink-0 mr-2">
+                  <p className="text-sm font-bold flex-shrink-0 mr-2" style={{ color: "#00283C" }}>
                     ${Number(r.amount).toFixed(2)}
                   </p>
                 </button>
@@ -118,9 +117,9 @@ export default function RecentActivity({ receipts, country }: {
                   onClick={e => { e.stopPropagation(); openEdit(r); }}
                   className="flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center transition-all
                     md:opacity-0 md:group-hover:opacity-100"
-                  style={{ color: "rgba(255,255,255,0.4)" }}
+                  style={{ color: "#9ca3af" }}
                   onMouseEnter={e => (e.currentTarget.style.color = "#00D6F2")}
-                  onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.4)")}>
+                  onMouseLeave={e => (e.currentTarget.style.color = "#9ca3af")}>
                   <PencilIcon />
                 </button>
 
@@ -129,9 +128,9 @@ export default function RecentActivity({ receipts, country }: {
                   onClick={() => setConfirming(confirming === r.id ? null : r.id)}
                   className="flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center transition-all
                     md:opacity-0 md:group-hover:opacity-100"
-                  style={{ color: "rgba(255,255,255,0.4)" }}
-                  onMouseEnter={e => (e.currentTarget.style.color = "#f87171")}
-                  onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.4)")}>
+                  style={{ color: "#9ca3af" }}
+                  onMouseEnter={e => (e.currentTarget.style.color = "#ef4444")}
+                  onMouseLeave={e => (e.currentTarget.style.color = "#9ca3af")}>
                   <TrashIcon />
                 </button>
               </div>

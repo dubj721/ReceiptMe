@@ -53,12 +53,9 @@ function FormIconButton({ completed, onClick }: {
 
 /* ─── Receipt card ───────────────────────────────────────── */
 
-// Solid opaque dark-teal gradient — the base card look
-const CARD_BG   = "linear-gradient(135deg, rgb(10, 44, 68) 0%, rgb(16, 62, 92) 100%)";
-// Warn state: opaque dark amber
-const WARN_BG   = "linear-gradient(135deg, rgb(60, 32, 4) 0%, rgb(80, 44, 6) 100%)";
-// Overdue state: opaque dark red
-const OVERDUE_BG = "linear-gradient(135deg, rgb(70, 10, 10) 0%, rgb(90, 16, 16) 100%)";
+const CARD_BG    = "#ffffff";
+const WARN_BG    = "#fffbeb";
+const OVERDUE_BG = "#fef2f2";
 
 const categoryEmoji: Record<string, string> = {
   meals: "🍽️", lodging: "🏨", transit: "🚗", other: "📄",
@@ -99,10 +96,10 @@ function ReceiptCard({
   // Pick the right card background
   const cardBg = isOverdue ? OVERDUE_BG : needsForm ? WARN_BG : CARD_BG;
   const cardBorder = isOverdue
-    ? "rgba(239,68,68,0.4)"
+    ? "rgba(239,68,68,0.3)"
     : needsForm
-      ? "rgba(245,158,11,0.4)"
-      : "rgba(0,214,242,0.18)";
+      ? "rgba(245,158,11,0.35)"
+      : "#e2e8f0";
 
   return (
     <>
@@ -110,16 +107,13 @@ function ReceiptCard({
       {confirming && (
         <div
           className="mb-2 px-4 py-3 rounded-2xl flex items-center justify-between gap-3"
-          style={{
-            background: "linear-gradient(135deg, rgb(70,10,10) 0%, rgb(90,16,16) 100%)",
-            border: "1px solid rgba(239,68,68,0.35)",
-          }}>
-          <p className="text-xs font-semibold text-red-300">Delete this receipt?</p>
+          style={{ background: "#fef2f2", border: "1px solid rgba(239,68,68,0.25)" }}>
+          <p className="text-xs font-semibold text-red-600">Delete this receipt?</p>
           <div className="flex gap-2">
             <button
               onClick={() => setConfirming(false)}
-              className="px-3 py-1.5 rounded-lg text-xs font-semibold"
-              style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.7)" }}>
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-600"
+              style={{ background: "#f1f5f9", border: "1px solid #e2e8f0" }}>
               Cancel
             </button>
             <button
@@ -173,14 +167,14 @@ function ReceiptCard({
           {/* Emoji */}
           <div
             className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 text-lg"
-            style={{ background: "rgba(255,255,255,0.1)" }}>
+            style={{ background: "#f1f5f9" }}>
             {categoryEmoji[receipt.category] ?? "📄"}
           </div>
 
           {/* Info */}
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-white truncate">{receipt.vendor_name}</p>
-            <p className="text-[11px] mt-0.5" style={{ color: "rgba(255,255,255,0.5)" }}>
+            <p className="text-sm font-semibold truncate" style={{ color: "#00283C" }}>{receipt.vendor_name}</p>
+            <p className="text-[11px] mt-0.5 text-gray-400">
               {new Date(receipt.transaction_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
               {" · "}{receipt.category}{" · "}{receipt.source.replace("_", " ")}
             </p>
@@ -188,7 +182,7 @@ function ReceiptCard({
 
           {/* Amount + badge */}
           <div className="flex flex-col items-end gap-1 flex-shrink-0">
-            <span className="text-sm font-semibold text-white">
+            <span className="text-sm font-semibold" style={{ color: "#00283C" }}>
               ${Number(receipt.amount).toFixed(2)}
             </span>
             <DaysBadge days={days} country={country} />
@@ -207,9 +201,9 @@ function ReceiptCard({
             onClick={(e) => { e.stopPropagation(); onEditClick?.(receipt); }}
             title="Edit receipt"
             className="hidden md:flex flex-shrink-0 w-7 h-7 rounded-lg items-center justify-center transition-all opacity-0 group-hover:opacity-100"
-            style={{ color: "rgba(255,255,255,0.4)" }}
+            style={{ color: "#9ca3af" }}
             onMouseEnter={e => (e.currentTarget.style.color = "#00D6F2")}
-            onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.4)")}>
+            onMouseLeave={e => (e.currentTarget.style.color = "#9ca3af")}>
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
               <path d="M2 14l1.5-5.5L11 1l3 3-7.5 7.5L2 14z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
             </svg>
@@ -218,9 +212,9 @@ function ReceiptCard({
             onClick={(e) => { e.stopPropagation(); setConfirming(true); }}
             title="Delete receipt"
             className="hidden md:flex flex-shrink-0 w-7 h-7 rounded-lg items-center justify-center transition-all opacity-0 group-hover:opacity-100"
-            style={{ color: "rgba(255,255,255,0.4)" }}
-            onMouseEnter={e => (e.currentTarget.style.color = "#f87171")}
-            onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.4)")}>
+            style={{ color: "#9ca3af" }}
+            onMouseEnter={e => (e.currentTarget.style.color = "#ef4444")}
+            onMouseLeave={e => (e.currentTarget.style.color = "#9ca3af")}>
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
               <path d="M3 4h10M5 4V3h6v1M6 7v4M10 7v4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
               <rect x="3.5" y="4" width="9" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.4"/>
@@ -489,8 +483,8 @@ export default function PacketList({
   if (localPackets.length === 0) return (
     <div className="flex flex-col items-center justify-center py-24 text-center">
       <p className="text-2xl mb-3">📋</p>
-      <p className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.5)" }}>No packets yet</p>
-      <p className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.3)" }}>Add a receipt to get started</p>
+      <p className="text-sm font-medium text-gray-500">No packets yet</p>
+      <p className="text-xs mt-1 text-gray-400">Add a receipt to get started</p>
       <Link href="/capture" className="mt-6 btn-primary max-w-[160px]">Add Receipt</Link>
     </div>
   );
@@ -501,11 +495,8 @@ export default function PacketList({
       {blockedReceipts.length > 0 && (
         <div
           className="mb-4 px-4 py-3 rounded-2xl"
-          style={{
-            background: "linear-gradient(135deg, rgb(70,10,10) 0%, rgb(90,16,16) 100%)",
-            border: "1px solid rgba(239,68,68,0.35)",
-          }}>
-          <p className="text-xs font-semibold text-red-300">
+          style={{ background: "#fef2f2", border: "1px solid rgba(239,68,68,0.25)" }}>
+          <p className="text-xs font-semibold text-red-600">
             {blockedReceipts.length} receipt{blockedReceipts.length > 1 ? "s" : ""} overdue — remove before exporting
           </p>
         </div>
@@ -513,11 +504,8 @@ export default function PacketList({
       {pendingForms.length > 0 && (
         <div
           className="mb-4 px-4 py-3 rounded-2xl"
-          style={{
-            background: "linear-gradient(135deg, rgb(60,32,4) 0%, rgb(80,44,6) 100%)",
-            border: "1px solid rgba(245,158,11,0.35)",
-          }}>
-          <p className="text-xs font-semibold text-yellow-300">
+          style={{ background: "#fffbeb", border: "1px solid rgba(245,158,11,0.3)" }}>
+          <p className="text-xs font-semibold text-amber-700">
             {pendingForms.length} missing receipt form{pendingForms.length > 1 ? "s" : ""} need attention — tap the 📋 icon
           </p>
         </div>
@@ -536,8 +524,8 @@ export default function PacketList({
               {/* Packet header */}
               <div className="flex items-center justify-between mb-2 px-1">
                 <div>
-                  <h2 className="text-sm font-bold text-white">{packet.label}</h2>
-                  <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.4)" }}>
+                  <h2 className="text-sm font-bold" style={{ color: "#00283C" }}>{packet.label}</h2>
+                  <p className="text-[11px] text-gray-400">
                     {new Date(packet.date_from).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                     {" – "}
                     {new Date(packet.date_to).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
@@ -545,8 +533,8 @@ export default function PacketList({
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-bold text-white">${total.toFixed(2)}</p>
-                  <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.4)" }}>{receipts.length} receipts</p>
+                  <p className="text-sm font-bold" style={{ color: "#00283C" }}>${total.toFixed(2)}</p>
+                  <p className="text-[11px] text-gray-400">{receipts.length} receipts</p>
                 </div>
               </div>
 
@@ -565,7 +553,7 @@ export default function PacketList({
               {/* Export row */}
               <div className="flex items-center justify-end gap-2 mt-3">
                 {!canExport && (
-                  <p className="text-[11px] flex-1" style={{ color: "rgba(245,158,11,0.85)" }}>
+                  <p className="text-[11px] flex-1 text-amber-600">
                     {hasPending ? "Complete forms to export" : "Remove overdue receipts first"}
                   </p>
                 )}
@@ -580,7 +568,7 @@ export default function PacketList({
                   className="px-5 py-2 rounded-xl text-xs font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                   style={canExport
                     ? { background: "#00D6F2", color: "#00283C" }
-                    : { background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.3)", border: "1px solid rgba(255,255,255,0.1)" }
+                    : { background: "#f1f5f9", color: "#9ca3af", border: "1px solid #e2e8f0" }
                   }>
                   Export PDF
                 </button>

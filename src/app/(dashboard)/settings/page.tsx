@@ -104,14 +104,15 @@ export default function SettingsPage() {
     <div className="w-full px-4 pt-4 pb-10" style={{ boxSizing: "border-box" }}>
 
       {/* ── Page title ───────────────────────────────────────────────────── */}
-      <p className="text-base font-bold text-white mb-5">Account Settings</p>
+      <p className="text-base font-bold mb-5" style={{ color: "#00283C" }}>Account Settings</p>
 
       {/* ── Profile card ─────────────────────────────────────────────────── */}
       <div
         className="w-full rounded-2xl p-5 mb-4"
         style={{
-          background: "linear-gradient(135deg, rgba(10,44,68,0.95) 0%, rgba(16,62,92,0.9) 100%)",
-          border: "1px solid rgba(0,214,242,0.15)",
+          background: "#ffffff",
+          border: "1px solid #f1f5f9",
+          boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
           boxSizing: "border-box",
         }}>
 
@@ -126,17 +127,16 @@ export default function SettingsPage() {
             <span className="text-white text-sm font-bold">{initials}</span>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-white truncate">{name || "—"}</p>
-            <p className="text-[11px] truncate" style={{ color: "rgba(255,255,255,0.45)" }}>{email}</p>
+            <p className="text-sm font-semibold truncate" style={{ color: "#00283C" }}>{name || "—"}</p>
+            <p className="text-[11px] truncate text-gray-400">{email}</p>
           </div>
         </div>
 
-        <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", marginBottom: 20 }} />
+        <div style={{ borderTop: "1px solid #f1f5f9", marginBottom: 20 }} />
 
         {/* Name */}
         <div className="mb-4">
-          <label className="block text-[10px] font-semibold uppercase tracking-widest mb-1.5"
-            style={{ color: "rgba(255,255,255,0.4)" }}>
+          <label className="block text-[10px] font-semibold uppercase tracking-widest mb-1.5 text-gray-400">
             Display Name
           </label>
           <input
@@ -145,9 +145,9 @@ export default function SettingsPage() {
             onChange={e => setName(e.target.value)}
             className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
             style={{
-              background: "rgba(255,255,255,0.07)",
-              border: "1px solid rgba(0,214,242,0.2)",
-              color: "white",
+              background: "#f8fafc",
+              border: "1px solid #e2e8f0",
+              color: "#111827",
               boxSizing: "border-box",
             }}
             placeholder="Your name"
@@ -156,8 +156,7 @@ export default function SettingsPage() {
 
         {/* Email — read only */}
         <div className="mb-4">
-          <label className="block text-[10px] font-semibold uppercase tracking-widest mb-1.5"
-            style={{ color: "rgba(255,255,255,0.4)" }}>
+          <label className="block text-[10px] font-semibold uppercase tracking-widest mb-1.5 text-gray-400">
             Email
           </label>
           <input
@@ -166,21 +165,20 @@ export default function SettingsPage() {
             disabled
             className="w-full px-4 py-2.5 rounded-xl text-sm cursor-not-allowed"
             style={{
-              background: "rgba(255,255,255,0.04)",
-              border: "1px solid rgba(255,255,255,0.08)",
-              color: "rgba(255,255,255,0.35)",
+              background: "#f1f5f9",
+              border: "1px solid #e2e8f0",
+              color: "#9ca3af",
               boxSizing: "border-box",
             }}
           />
-          <p className="text-[10px] mt-1" style={{ color: "rgba(255,255,255,0.3)" }}>
+          <p className="text-[10px] mt-1 text-gray-400">
             Email cannot be changed here.
           </p>
         </div>
 
         {/* ── Office City picker ──────────────────────────────────────────── */}
         <div className="mb-5" ref={searchRef}>
-          <label className="block text-[10px] font-semibold uppercase tracking-widest mb-1.5"
-            style={{ color: "rgba(255,255,255,0.4)" }}>
+          <label className="block text-[10px] font-semibold uppercase tracking-widest mb-1.5 text-gray-400">
             Office City
           </label>
 
@@ -189,23 +187,20 @@ export default function SettingsPage() {
               <div
                 className="flex-1 min-w-0 flex items-center gap-2 px-4 py-2.5 rounded-xl"
                 style={{
-                  background: "rgba(0,214,242,0.12)",
+                  background: "rgba(0,40,60,0.06)",
                   border: "1px solid rgba(0,214,242,0.35)",
                 }}>
                 <span className="text-[11px]">📍</span>
-                <span className="text-sm font-semibold truncate" style={{ color: "#00D6F2" }}>
+                <span className="text-sm font-semibold truncate" style={{ color: "#00283C" }}>
                   {city}
                 </span>
               </div>
               <button
                 onClick={clearCity}
                 className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 active:scale-95 transition-transform"
-                style={{
-                  background: "rgba(255,255,255,0.07)",
-                  border: "1px solid rgba(255,255,255,0.12)",
-                }}>
+                style={{ background: "#f1f5f9", border: "1px solid #e2e8f0" }}>
                 <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
-                  <path d="M2 2l8 8M10 2L2 10" stroke="rgba(255,255,255,0.6)" strokeWidth="1.8" strokeLinecap="round"/>
+                  <path d="M2 2l8 8M10 2L2 10" stroke="#9ca3af" strokeWidth="1.8" strokeLinecap="round"/>
                 </svg>
               </button>
             </div>
@@ -217,9 +212,9 @@ export default function SettingsPage() {
               onFocus={() => setShowList(true)}
               className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
               style={{
-                background: "rgba(255,255,255,0.07)",
-                border: "1px solid rgba(0,214,242,0.2)",
-                color: "white",
+                background: "#f8fafc",
+                border: "1px solid #e2e8f0",
+                color: "#111827",
                 boxSizing: "border-box",
               }}
               placeholder="Search office city…"
@@ -230,13 +225,14 @@ export default function SettingsPage() {
             <div
               className="w-full mt-1 rounded-2xl overflow-hidden"
               style={{
-                background: "rgba(8,28,44,0.98)",
-                border: "1px solid rgba(0,214,242,0.2)",
+                background: "#ffffff",
+                border: "1px solid #e2e8f0",
+                boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
                 maxHeight: 220,
                 overflowY: "auto",
               }}>
               {filtered.length === 0 ? (
-                <p className="px-4 py-3 text-sm" style={{ color: "rgba(255,255,255,0.4)" }}>
+                <p className="px-4 py-3 text-sm text-gray-400">
                   No cities found
                 </p>
               ) : (
@@ -244,9 +240,8 @@ export default function SettingsPage() {
                   <button
                     key={c}
                     onClick={() => selectCity(c)}
-                    className="w-full text-left px-4 py-2.5 text-sm"
-                    style={{ color: "rgba(255,255,255,0.8)" }}
-                    onMouseEnter={e => (e.currentTarget.style.background = "rgba(0,214,242,0.1)")}
+                    className="w-full text-left px-4 py-2.5 text-sm text-gray-700"
+                    onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
                     onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
                     {c}
                   </button>
@@ -255,12 +250,12 @@ export default function SettingsPage() {
             </div>
           )}
 
-          <p className="text-[10px] mt-1.5" style={{ color: "rgba(255,255,255,0.28)" }}>
+          <p className="text-[10px] mt-1.5 text-gray-400">
             Used to calculate your expense submission deadline.
           </p>
         </div>
 
-        {error && <p className="text-xs text-red-400 mb-3">{error}</p>}
+        {error && <p className="text-xs text-red-500 mb-3">{error}</p>}
 
         <button
           onClick={save}
@@ -276,9 +271,9 @@ export default function SettingsPage() {
         onClick={signOut}
         className="w-full py-2.5 rounded-xl text-sm font-medium"
         style={{
-          background: "rgba(239,68,68,0.08)",
+          background: "#fef2f2",
           border: "1px solid rgba(239,68,68,0.2)",
-          color: "#f87171",
+          color: "#ef4444",
           boxSizing: "border-box",
         }}>
         Sign Out

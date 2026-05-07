@@ -18,10 +18,10 @@ export default function Greeting({ firstName }: { firstName: string }) {
 
   return (
     <div>
-      <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "#00D6F2" }}>
+      <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "#00283C" }}>
         {dateStr}
       </p>
-      <h2 className="text-xl font-bold text-white mt-0.5 leading-snug">
+      <h2 className="text-xl font-bold mt-0.5 leading-snug" style={{ color: "#00283C" }}>
         {greeting || `Hi, ${firstName}`} 👋
       </h2>
     </div>

@@ -77,7 +77,7 @@ export default async function ArchivePage() {
                 <div key={r.id}
                   className="card flex items-center gap-3 border-red-100 bg-red-50/20">
                   {/* Category icon */}
-                  <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center flex-shrink-0 text-lg border border-red-100">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 text-lg" style={{ background: "#f1f5f9" }}>
                     {categoryEmoji[r.category] ?? "📄"}
                   </div>
 

@@ -114,7 +114,7 @@ export default async function HomePage() {
         {recent.length > 0 && (
           <div className="w-full pt-1">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-sm font-bold text-white">Recent Activity</p>
+              <p className="text-sm font-bold" style={{ color: "#00283C" }}>Recent Activity</p>
               <Link href="/packets" className="text-[11px] font-semibold"
                 style={{ color: "#00D6F2" }}>
                 See all →
@@ -128,8 +128,8 @@ export default async function HomePage() {
         {receipts.length === 0 && (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <p className="text-3xl mb-3">🧾</p>
-            <p className="text-sm font-semibold text-white">No receipts yet</p>
-            <p className="text-xs mt-1 mb-6" style={{ color: "rgba(255,255,255,0.45)" }}>
+            <p className="text-sm font-semibold text-gray-700">No receipts yet</p>
+            <p className="text-xs mt-1 mb-6 text-gray-400">
               Start by adding your first receipt
             </p>
             <Link href="/capture" className="btn-primary max-w-[180px]">Add Receipt</Link>
