@@ -1,6 +1,8 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import AdminRoleToggle from "@/components/admin/AdminRoleToggle";
 
 const CARD = {
   background: "linear-gradient(135deg, rgb(10,44,68) 0%, rgb(16,62,92) 100%)",
@@ -11,6 +13,10 @@ const CARD = {
 export default async function AdminUserDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const admin = createAdminClient();
+
+  // Get the currently signed-in admin's ID so we can prevent self-demotion
+  const supabase = await createClient();
+  const { data: { user: currentUser } } = await supabase.auth.getUser();
 
   const [
     { data: profile },
@@ -147,6 +153,23 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
             </div>
           )}
         </div>
+      </div>
+
+      {/* Admin access management */}
+      <div className="p-5 space-y-3" style={CARD}>
+        <div>
+          <p className="text-sm font-bold text-white">Admin Access</p>
+          <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>
+            {profile.is_admin
+              ? "This user currently has admin access."
+              : "This user does not have admin access."}
+          </p>
+        </div>
+        <AdminRoleToggle
+          userId={profile.id}
+          isAdmin={!!profile.is_admin}
+          isSelf={currentUser?.id === profile.id}
+        />
       </div>
     </div>
   );
