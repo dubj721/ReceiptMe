@@ -461,6 +461,25 @@ export default function PacketList({
   const [localPackets,  setLocalPackets]  = useState(packets);
   const [editMode,      setEditMode]      = useState(false);
 
+  // Packets whose date_to is in the past start collapsed; the current (or future) month starts open
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return new Set(
+      packets
+        .filter(p => new Date(p.date_to) < today)
+        .map(p => p.id)
+    );
+  });
+
+  function toggleCollapsed(id: string) {
+    setCollapsed(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
   async function handleDelete(receiptId: string) {
     const res = await fetch(`/api/receipts/${receiptId}`, { method: "DELETE" });
     if (res.ok) {
@@ -519,60 +538,78 @@ export default function PacketList({
           const hasPending = receipts.some(r => r.source === "bank_transaction" && !r.missing_receipt_form?.completed_at);
           const canExport  = !hasBlocked && !hasPending;
 
+          const isCollapsed = collapsed.has(packet.id);
+
           return (
             <div key={packet.id}>
-              {/* Packet header */}
-              <div className="flex items-center justify-between mb-2 px-1">
-                <div>
-                  <h2 className="text-sm font-bold" style={{ color: "#00283C" }}>{packet.label}</h2>
-                  <p className="text-[11px] text-gray-400">
-                    {new Date(packet.date_from).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                    {" – "}
-                    {new Date(packet.date_to).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                    {packet.client_name && ` · ${packet.client_name}`}
-                  </p>
+              {/* Packet header — clickable to collapse/expand */}
+              <button
+                onClick={() => toggleCollapsed(packet.id)}
+                className="w-full flex items-center justify-between mb-2 px-1 py-1 rounded-xl transition-colors hover:bg-black/[0.03] active:bg-black/[0.05]">
+                <div className="flex items-center gap-2 min-w-0">
+                  {/* Chevron */}
+                  <svg
+                    width="14" height="14" viewBox="0 0 14 14" fill="none"
+                    className="flex-shrink-0 transition-transform duration-200"
+                    style={{ transform: isCollapsed ? "rotate(-90deg)" : "rotate(0deg)" }}>
+                    <path d="M3 5l4 4 4-4" stroke="#9ca3af" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  <div className="text-left min-w-0">
+                    <h2 className="text-sm font-bold" style={{ color: "#00283C" }}>{packet.label}</h2>
+                    <p className="text-[11px] text-gray-400">
+                      {new Date(packet.date_from).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                      {" – "}
+                      {new Date(packet.date_to).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                      {packet.client_name && ` · ${packet.client_name}`}
+                    </p>
+                  </div>
                 </div>
-                <div className="text-right">
+                <div className="text-right flex-shrink-0">
                   <p className="text-sm font-bold" style={{ color: "#00283C" }}>${total.toFixed(2)}</p>
-                  <p className="text-[11px] text-gray-400">{receipts.length} receipts</p>
+                  <p className="text-[11px] text-gray-400">{receipts.length} receipt{receipts.length !== 1 ? "s" : ""}</p>
                 </div>
-              </div>
+              </button>
 
-              {receipts.map(r => (
-                <ReceiptCard
-                  key={r.id}
-                  receipt={r}
-                  country={country}
-                  onViewClick={(r) => { setEditMode(false); setDetailReceipt(r); }}
-                  onFormIconClick={setSheetReceipt}
-                  onDelete={handleDelete}
-                  onEditClick={(r) => { setEditMode(true); setDetailReceipt(r); }}
-                />
-              ))}
+              {/* Collapsible body */}
+              {!isCollapsed && (
+                <>
+                  {receipts.map(r => (
+                    <ReceiptCard
+                      key={r.id}
+                      receipt={r}
+                      country={country}
+                      onViewClick={(r) => { setEditMode(false); setDetailReceipt(r); }}
+                      onFormIconClick={setSheetReceipt}
+                      onDelete={handleDelete}
+                      onEditClick={(r) => { setEditMode(true); setDetailReceipt(r); }}
+                    />
+                  ))}
 
-              {/* Export row */}
-              <div className="flex items-center justify-end gap-2 mt-3">
-                {!canExport && (
-                  <p className="text-[11px] flex-1 text-amber-600">
-                    {hasPending ? "Complete forms to export" : "Remove overdue receipts first"}
-                  </p>
-                )}
-                <button
-                  disabled={!canExport}
-                  onClick={() => {
-                    if (canExport) {
-                      exportPDF(packet, userName);
-                      trackEvent("pdf_exported", { packet_id: packet.id, receipt_count: receipts.length });
-                    }
-                  }}
-                  className="px-5 py-2 rounded-xl text-xs font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                  style={canExport
-                    ? { background: "#00D6F2", color: "#00283C" }
-                    : { background: "#f1f5f9", color: "#9ca3af", border: "1px solid #e2e8f0" }
-                  }>
-                  Export PDF
-                </button>
-              </div>
+                  {/* Export row */}
+                  <div className="flex items-center justify-end gap-2 mt-3">
+                    {!canExport && (
+                      <p className="text-[11px] flex-1 text-amber-600">
+                        {hasPending ? "Complete forms to export" : "Remove overdue receipts first"}
+                      </p>
+                    )}
+                    <button
+                      disabled={!canExport}
+                      onClick={() => {
+                        if (canExport) {
+                          exportPDF(packet, userName);
+                          trackEvent("pdf_exported", { packet_id: packet.id, receipt_count: receipts.length });
+                        }
+                      }}
+                      className="px-5 py-2 rounded-xl text-xs font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                      style={canExport
+                        ? { background: "#00D6F2", color: "#00283C" }
+                        : { background: "#f1f5f9", color: "#9ca3af", border: "1px solid #e2e8f0" }
+                      }>
+                      Export PDF
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           );
         })}
