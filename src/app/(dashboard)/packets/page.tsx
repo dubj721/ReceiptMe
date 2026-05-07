@@ -25,7 +25,7 @@ export default async function PacketsPage() {
   })) as (Packet & { receipts: Receipt[] })[];
 
   return (
-    <div className="px-4 pt-2 md:pt-0 pb-8 md:max-w-2xl md:mx-auto">
+    <div className="px-4 pt-2 md:pt-0 pb-8">
       <PacketList packets={typedPackets} country={country} userName={(profile as any)?.name ?? "Employee"} />
     </div>
   );
