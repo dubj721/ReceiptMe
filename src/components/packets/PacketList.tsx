@@ -180,6 +180,14 @@ function ReceiptCard({
             </p>
           </div>
 
+          {/* Form icon — left of amount so it never displaces the dollar/days */}
+          {isBank && (
+            <FormIconButton
+              completed={formDone}
+              onClick={(e) => { e.stopPropagation(); onFormIconClick(receipt); }}
+            />
+          )}
+
           {/* Amount + badge */}
           <div className="flex flex-col items-end gap-1 flex-shrink-0">
             <span className="text-sm font-semibold" style={{ color: "#00283C" }}>
@@ -187,14 +195,6 @@ function ReceiptCard({
             </span>
             <DaysBadge days={days} country={country} />
           </div>
-
-          {/* Form icon */}
-          {isBank && (
-            <FormIconButton
-              completed={formDone}
-              onClick={(e) => { e.stopPropagation(); onFormIconClick(receipt); }}
-            />
-          )}
 
           {/* Desktop hover actions */}
           <button
