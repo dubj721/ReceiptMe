@@ -1,0 +1,854 @@
+"use client";
+
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import type { Receipt } from "@/types";
+import { daysOld } from "@/types";
+import { EXPENSE_CATEGORIES } from "@/lib/expense-categories";
+
+/* ─── Types ──────────────────────────────────────────────── */
+type RowData = {
+  expenseType: string;
+  description: string;
+  customer: string;
+  contacts: string;
+  groupSize: string;
+  parkingTolls: string;
+  tip: string;
+};
+
+type FormData = {
+  header: { name: string; office: string; month: string };
+  rows: Record<string, RowData>;
+};
+
+function defaultRow(receipt: Receipt): RowData {
+  return {
+    expenseType: "",
+    description: receipt.vendor_name ?? "",
+    customer: "",
+    contacts: "",
+    groupSize: "",
+    parkingTolls: "",
+    tip: "",
+  };
+}
+
+function storageKey(userId: string) {
+  return `overdue_form_${userId}`;
+}
+
+function deriveMonth(receipts: Receipt[]): string {
+  if (!receipts.length) return "";
+  const dates = receipts.map(r => r.transaction_date).sort();
+  const d = new Date(dates[0]);
+  return d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+}
+
+/* ─── Category picker ────────────────────────────────────── */
+function CategoryPicker({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
+
+  const filtered = EXPENSE_CATEGORIES.filter(c =>
+    c.toLowerCase().includes(query.toLowerCase())
+  );
+
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+        setQuery("");
+      }
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm text-left transition-colors"
+        style={{
+          background: "#f8fafc",
+          border: value ? "1px solid #00D6F2" : "1px solid #e2e8f0",
+          color: value ? "#00283C" : "#9ca3af",
+        }}>
+        <span className="truncate flex-1 mr-2">
+          {value || "Select expense type…"}
+        </span>
+        <svg
+          width="12" height="12" viewBox="0 0 12 12" fill="none"
+          className="flex-shrink-0 transition-transform"
+          style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)" }}>
+          <path d="M2 4l4 4 4-4" stroke="#9ca3af" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </button>
+
+      {open && (
+        <div
+          className="absolute z-50 w-full mt-1 rounded-xl overflow-hidden"
+          style={{
+            background: "#ffffff",
+            border: "1px solid #e2e8f0",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.12)",
+            top: "100%",
+          }}>
+          {/* Search */}
+          <div className="p-2 border-b" style={{ borderColor: "#f1f5f9" }}>
+            <input
+              autoFocus
+              type="text"
+              placeholder="Search categories…"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              className="w-full px-3 py-2 text-sm rounded-lg outline-none"
+              style={{ background: "#f8fafc", border: "1px solid #e2e8f0", color: "#111827" }}
+            />
+          </div>
+          {/* Options */}
+          <div className="max-h-52 overflow-y-auto">
+            {filtered.length === 0 ? (
+              <p className="px-4 py-3 text-xs text-gray-400 text-center">No match</p>
+            ) : (
+              filtered.map(cat => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => { onChange(cat); setOpen(false); setQuery(""); }}
+                  className="w-full text-left px-4 py-2.5 text-xs transition-colors"
+                  style={{
+                    background: cat === value ? "rgba(0,214,242,0.08)" : "transparent",
+                    color: cat === value ? "#00283C" : "#374151",
+                    fontWeight: cat === value ? 600 : 400,
+                  }}
+                  onMouseEnter={e => {
+                    if (cat !== value) (e.currentTarget as HTMLElement).style.background = "#f8fafc";
+                  }}
+                  onMouseLeave={e => {
+                    if (cat !== value) (e.currentTarget as HTMLElement).style.background = "transparent";
+                  }}>
+                  {cat}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Single receipt card ────────────────────────────────── */
+const categoryEmoji: Record<string, string> = {
+  meals: "🍽️", lodging: "🏨", transit: "🚗", other: "📄",
+};
+
+function ReceiptFormCard({
+  receipt,
+  row,
+  onChange,
+}: {
+  receipt: Receipt;
+  row: RowData;
+  onChange: (field: keyof RowData, value: string) => void;
+}) {
+  const days = daysOld(receipt.transaction_date);
+  const isComplete = !!row.expenseType;
+
+  return (
+    <div
+      className="rounded-2xl mb-4 overflow-hidden"
+      style={{ border: "1px solid #e2e8f0", background: "#ffffff", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
+
+      {/* Card header — receipt summary */}
+      <div
+        className="flex items-center gap-3 px-4 py-3"
+        style={{ background: "#f8fafc", borderBottom: "1px solid #f1f5f9" }}>
+        <div
+          className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 text-lg"
+          style={{ background: "#ffffff", border: "1px solid #e2e8f0" }}>
+          {categoryEmoji[receipt.category] ?? "📄"}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold truncate" style={{ color: "#00283C" }}>
+            {receipt.vendor_name}
+          </p>
+          <p className="text-[11px] text-gray-400 mt-0.5">
+            {new Date(receipt.transaction_date).toLocaleDateString("en-US", {
+              month: "short", day: "numeric", year: "numeric",
+            })}
+            {" · "}{receipt.source.replace(/_/g, " ")}
+          </p>
+        </div>
+        {/* Completion indicator */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <span className="text-sm font-bold" style={{ color: "#00283C" }}>
+            ${Number(receipt.amount).toFixed(2)}
+          </span>
+          <div
+            className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
+            style={{
+              background: isComplete ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.1)",
+              border: `1px solid ${isComplete ? "rgba(34,197,94,0.4)" : "rgba(239,68,68,0.3)"}`,
+            }}
+            title={isComplete ? "Ready to export" : "Expense type required"}>
+            {isComplete ? (
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                <path d="M2 5l2.5 2.5L8 3" stroke="#22c55e" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            ) : (
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                <path d="M5 3v2.5M5 7v.2" stroke="#ef4444" strokeWidth="1.3" strokeLinecap="round"/>
+              </svg>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Form fields */}
+      <div className="px-4 py-4 space-y-3">
+
+        {/* Expense Type — required */}
+        <div>
+          <label className="block text-[11px] font-semibold text-gray-500 mb-1">
+            Expense Type <span style={{ color: "#ef4444" }}>*</span>
+          </label>
+          <CategoryPicker
+            value={row.expenseType}
+            onChange={v => onChange("expenseType", v)}
+          />
+        </div>
+
+        {/* Description */}
+        <div>
+          <label className="block text-[11px] font-semibold text-gray-500 mb-1">Description</label>
+          <input
+            type="text"
+            value={row.description}
+            onChange={e => onChange("description", e.target.value)}
+            placeholder="Vendor / purpose…"
+            className="w-full px-3 py-2.5 rounded-xl text-sm outline-none transition-colors"
+            style={{ background: "#f8fafc", border: "1px solid #e2e8f0", color: "#111827" }}
+          />
+        </div>
+
+        {/* Customer + Contacts */}
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="block text-[11px] font-semibold text-gray-500 mb-1">Customer</label>
+            <input
+              type="text"
+              value={row.customer}
+              onChange={e => onChange("customer", e.target.value)}
+              placeholder="Client / company…"
+              className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
+              style={{ background: "#f8fafc", border: "1px solid #e2e8f0", color: "#111827" }}
+            />
+          </div>
+          <div>
+            <label className="block text-[11px] font-semibold text-gray-500 mb-1">Contacts</label>
+            <input
+              type="text"
+              value={row.contacts}
+              onChange={e => onChange("contacts", e.target.value)}
+              placeholder="Names attended…"
+              className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
+              style={{ background: "#f8fafc", border: "1px solid #e2e8f0", color: "#111827" }}
+            />
+          </div>
+        </div>
+
+        {/* Group Size + Parking + Tip */}
+        <div className="grid grid-cols-3 gap-2">
+          <div>
+            <label className="block text-[11px] font-semibold text-gray-500 mb-1">Group Size</label>
+            <input
+              type="number"
+              min="1"
+              value={row.groupSize}
+              onChange={e => onChange("groupSize", e.target.value)}
+              placeholder="—"
+              className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
+              style={{ background: "#f8fafc", border: "1px solid #e2e8f0", color: "#111827" }}
+            />
+          </div>
+          <div>
+            <label className="block text-[11px] font-semibold text-gray-500 mb-1">Parking/Tolls</label>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={row.parkingTolls}
+              onChange={e => onChange("parkingTolls", e.target.value)}
+              placeholder="$0.00"
+              className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
+              style={{ background: "#f8fafc", border: "1px solid #e2e8f0", color: "#111827" }}
+            />
+          </div>
+          <div>
+            <label className="block text-[11px] font-semibold text-gray-500 mb-1">Tip</label>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={row.tip}
+              onChange={e => onChange("tip", e.target.value)}
+              placeholder="$0.00"
+              className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
+              style={{ background: "#f8fafc", border: "1px solid #e2e8f0", color: "#111827" }}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── PDF helpers ────────────────────────────────────────── */
+function pdfFooter(doc: any, PW: number, PH: number) {
+  const page = doc.internal.getCurrentPageInfo().pageNumber;
+  doc.setDrawColor(210, 220, 230);
+  doc.setLineWidth(0.3);
+  doc.line(14, PH - 13, PW - 14, PH - 13);
+  doc.setFontSize(6.5);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(160, 174, 192);
+  doc.text("Confidential — Insight Global LLC — Internal Use Only", 14, PH - 8.5);
+  doc.text(`Page ${page}`, PW - 14, PH - 8.5, { align: "right" });
+}
+
+async function fetchImgBase64(url: string): Promise<{ data: string; fmt: string; natW: number; natH: number } | null> {
+  try {
+    const res  = await fetch(url);
+    const blob = await res.blob();
+    const data = await new Promise<string>((ok, fail) => {
+      const fr = new FileReader();
+      fr.onload  = () => ok(fr.result as string);
+      fr.onerror = fail;
+      fr.readAsDataURL(blob);
+    });
+    const { w, h } = await new Promise<{ w: number; h: number }>((ok) => {
+      const img = new Image();
+      img.onload  = () => ok({ w: img.naturalWidth, h: img.naturalHeight });
+      img.onerror = () => ok({ w: 1, h: 1 });
+      img.src = data;
+    });
+    return { data, fmt: blob.type.includes("png") ? "PNG" : "JPEG", natW: w, natH: h };
+  } catch {
+    return null;
+  }
+}
+
+/* ─── Combined PDF export ────────────────────────────────── */
+async function exportCombinedPDF(
+  receipts: Receipt[],
+  rows: Record<string, RowData>,
+  header: { name: string; office: string; month: string },
+) {
+  const { default: jsPDF } = await import("jspdf");
+
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "letter" });
+  const PW  = 215.9;
+  const PH  = 279.4;
+  const ML  = 10;
+  const MR  = 10;
+  const CW  = PW - ML - MR;
+
+  const fmtDate = (d: string) =>
+    new Date(d).toLocaleDateString("en-US", { month: "numeric", day: "numeric", year: "2-digit" });
+  const fmt$    = (v: string | number) =>
+    v ? `$${Number(v).toFixed(2)}` : "";
+
+  // ── Column layout ──────────────────────────────────────────
+  // Total CW = 195.9mm
+  const COLS = [
+    { key: "expenseType",  label: "Expense Type",    w: 45 },
+    { key: "date",         label: "Date",             w: 18 },
+    { key: "groupSize",    label: "Grp",              w: 8  },
+    { key: "customer",     label: "Customer",         w: 26 },
+    { key: "contacts",     label: "Contacts",         w: 26 },
+    { key: "description",  label: "Description",      w: 33 },
+    { key: "parkingTolls", label: "Prk/Tolls",        w: 16 },
+    { key: "total",        label: "Total",            w: 14 },
+    { key: "tip",          label: "Tip",              w: 9.9},
+  ];
+
+  // ── Page 1: Paper Form ─────────────────────────────────────
+
+  // Title bar
+  doc.setFillColor(0, 40, 60);
+  doc.rect(0, 0, PW, 10, "F");
+  doc.setFillColor(0, 214, 242);
+  doc.rect(0, 0, 4, 10, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7);
+  doc.setTextColor(255, 255, 255);
+  doc.text("INSIGHT GLOBAL INC — SALES EXPENSE REPORT", ML + 2, 6.5);
+
+  // Header fields
+  let y = 14;
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(80, 80, 80);
+  doc.text(`Name:  `, ML, y);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(0, 40, 60);
+  doc.text(header.name || "___________________", ML + 14, y);
+
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(80, 80, 80);
+  doc.text(`Office:  `, ML, y + 5);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(0, 40, 60);
+  doc.text(header.office || "___________________", ML + 14, y + 5);
+
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(80, 80, 80);
+  doc.text(`Month:  `, ML + 80, y);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(0, 40, 60);
+  doc.text(header.month || "___________________", ML + 96, y);
+
+  // "Overdue or Termed Expenses" label
+  y += 13;
+  doc.setFont("helvetica", "bolditalic");
+  doc.setFontSize(7.5);
+  doc.setTextColor(180, 30, 30);
+  doc.text("* Overdue or Termed Expenses *", ML, y);
+
+  // Column headers
+  y += 4;
+  const HDR_H = 8;
+  doc.setFillColor(0, 40, 60);
+  doc.rect(ML, y, CW, HDR_H, "F");
+
+  let xCursor = ML;
+  COLS.forEach((col) => {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(5.5);
+    doc.setTextColor(255, 255, 255);
+    const lines = doc.splitTextToSize(col.label, col.w - 2);
+    doc.text(lines, xCursor + 1.5, y + 3);
+    xCursor += col.w;
+  });
+
+  // Data rows
+  y += HDR_H;
+  const ROW_H = 8;
+  let totalAmount   = 0;
+  let totalParking  = 0;
+  let totalTip      = 0;
+
+  receipts.forEach((receipt, idx) => {
+    if (y + ROW_H > PH - 22) {
+      pdfFooter(doc, PW, PH);
+      doc.addPage();
+      y = 10;
+
+      // Repeat column headers on new page
+      doc.setFillColor(0, 40, 60);
+      doc.rect(ML, y, CW, HDR_H, "F");
+      let hx = ML;
+      COLS.forEach((col) => {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(5.5);
+        doc.setTextColor(255, 255, 255);
+        doc.text(col.label, hx + 1.5, y + 5);
+        hx += col.w;
+      });
+      y += HDR_H;
+    }
+
+    const row = rows[receipt.id];
+    const rowFill = idx % 2 === 0 ? [255, 255, 255] : [248, 250, 252];
+    doc.setFillColor(...(rowFill as [number, number, number]));
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.2);
+    doc.rect(ML, y, CW, ROW_H, "FD");
+
+    const amount     = Number(receipt.amount);
+    const parking    = row?.parkingTolls ? Number(row.parkingTolls) : 0;
+    const tip        = row?.tip ? Number(row.tip) : 0;
+    totalAmount  += amount;
+    totalParking += parking;
+    totalTip     += tip;
+
+    const cellValues: Record<string, string> = {
+      expenseType:  row?.expenseType  || "",
+      date:         fmtDate(receipt.transaction_date),
+      groupSize:    row?.groupSize    || "",
+      customer:     row?.customer     || "",
+      contacts:     row?.contacts     || "",
+      description:  row?.description  || receipt.vendor_name,
+      parkingTolls: parking ? fmt$(parking) : "",
+      total:        fmt$(amount),
+      tip:          tip ? fmt$(tip) : "",
+    };
+
+    let cx = ML;
+    COLS.forEach((col) => {
+      const val = cellValues[col.key] || "";
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(5.8);
+      doc.setTextColor(30, 40, 60);
+      const clipped = doc.splitTextToSize(val, col.w - 2)[0] ?? "";
+      doc.text(clipped, cx + 1.5, y + 5);
+      cx += col.w;
+    });
+
+    y += ROW_H;
+  });
+
+  // Totals row
+  if (y + ROW_H > PH - 22) {
+    pdfFooter(doc, PW, PH);
+    doc.addPage();
+    y = 10;
+  }
+  doc.setFillColor(0, 40, 60);
+  doc.rect(ML, y, CW, ROW_H, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(6.5);
+  doc.setTextColor(255, 255, 255);
+  doc.text("TOTALS", ML + 2, y + 5);
+
+  let tx = ML;
+  COLS.forEach((col) => {
+    let val = "";
+    if (col.key === "parkingTolls") val = totalParking ? fmt$(totalParking) : "";
+    if (col.key === "total")        val = fmt$(totalAmount);
+    if (col.key === "tip")          val = totalTip ? fmt$(totalTip) : "";
+    if (val) {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(6.5);
+      doc.setTextColor(0, 214, 242);
+      doc.text(val, tx + 1.5, y + 5);
+    }
+    tx += col.w;
+  });
+  y += ROW_H + 4;
+
+  // Grand total line
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.setTextColor(0, 40, 60);
+  doc.text("Expenses Grand Total:", ML, y + 5);
+  doc.setTextColor(0, 40, 60);
+  doc.text(fmt$(totalAmount + totalParking + totalTip), PW - MR, y + 5, { align: "right" });
+
+  // ── Part 2: Receipt Images ─────────────────────────────────
+  pdfFooter(doc, PW, PH);
+  doc.addPage();
+
+  // Section header
+  doc.setFillColor(0, 40, 60);
+  doc.rect(0, 0, PW, 18, "F");
+  doc.setFillColor(239, 68, 68);
+  doc.rect(0, 0, 4, 18, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(13);
+  doc.setTextColor(255, 255, 255);
+  doc.text("Receipt Documentation", ML + 2, 12);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7);
+  doc.setTextColor(160, 200, 220);
+  doc.text(`${receipts.length} receipt${receipts.length !== 1 ? "s" : ""}  ·  Overdue Expenses  ·  ${header.name}`, PW - MR, 12, { align: "right" });
+
+  // Fetch images
+  const imgCache: Record<string, Awaited<ReturnType<typeof fetchImgBase64>>> = {};
+  await Promise.all(
+    receipts.filter(r => r.image_url).map(async r => {
+      imgCache[r.id] = await fetchImgBase64(r.image_url!);
+    })
+  );
+
+  const COLS_IMG  = 3;
+  const COL_GAP   = 5;
+  const COL_W_IMG = (CW - COL_GAP * (COLS_IMG - 1)) / COLS_IMG;
+  const IMG_H     = 74;
+  const INFO_GAP  = 2.5;
+  const INFO_H    = 24;
+  const CELL_H    = IMG_H + INFO_GAP + INFO_H;
+  const ROW_GAP   = 8;
+
+  y = 24;
+
+  const imgRows: Receipt[][] = [];
+  for (let i = 0; i < receipts.length; i += COLS_IMG) {
+    imgRows.push(receipts.slice(i, i + COLS_IMG));
+  }
+
+  imgRows.forEach((row) => {
+    if (y + CELL_H > PH - 18) {
+      pdfFooter(doc, PW, PH);
+      doc.addPage();
+      y = 16;
+    }
+
+    row.forEach((r, col) => {
+      const x        = ML + col * (COL_W_IMG + COL_GAP);
+      const img      = imgCache[r.id] ?? null;
+      const isBank   = r.source === "bank_transaction";
+      const formDone = !!r.missing_receipt_form?.completed_at;
+
+      doc.setFillColor(254, 242, 242);
+      doc.setDrawColor(239, 68, 68);
+      doc.setLineWidth(0.25);
+      doc.rect(x, y, COL_W_IMG, IMG_H, "FD");
+
+      if (img) {
+        let iW = COL_W_IMG - 2;
+        let iH = (img.natH / img.natW) * iW;
+        if (iH > IMG_H - 2) { iH = IMG_H - 2; iW = (img.natW / img.natH) * iH; }
+        doc.addImage(img.data, img.fmt, x + (COL_W_IMG - iW) / 2, y + (IMG_H - iH) / 2, iW, iH);
+      } else if (isBank) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(6.5);
+        doc.setTextColor(100, 116, 139);
+        doc.text("BANK TRANSACTION", x + COL_W_IMG / 2, y + IMG_H / 2 - 4, { align: "center" });
+        const sc = formDone ? [22, 163, 74] : [180, 100, 0] as [number, number, number];
+        doc.setTextColor(...sc as [number, number, number]);
+        doc.setFontSize(7);
+        doc.text(formDone ? "Form Complete" : "Form Pending", x + COL_W_IMG / 2, y + IMG_H / 2 + 4, { align: "center" });
+      } else {
+        doc.setFont("helvetica", "italic");
+        doc.setFontSize(6.5);
+        doc.setTextColor(160, 174, 192);
+        doc.text("No image", x + COL_W_IMG / 2, y + IMG_H / 2, { align: "center" });
+      }
+
+      // Info strip
+      const iy = y + IMG_H + INFO_GAP;
+      doc.setFillColor(255, 255, 255);
+      doc.setDrawColor(220, 228, 236);
+      doc.rect(x, iy, COL_W_IMG, INFO_H, "FD");
+      doc.setFillColor(239, 68, 68);
+      doc.rect(x, iy, COL_W_IMG, 1.2, "F");
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7);
+      doc.setTextColor(5, 15, 35);
+      doc.text(doc.splitTextToSize(r.vendor_name, COL_W_IMG - 22)[0], x + 3, iy + 6.5);
+      doc.text(`$${Number(r.amount).toFixed(2)}`, x + COL_W_IMG - 3, iy + 6.5, { align: "right" });
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(6);
+      doc.setTextColor(100, 116, 139);
+      doc.text(fmtDate(r.transaction_date), x + 3, iy + 12.5);
+      const rowData = rows[r.id];
+      const expLabel = rowData?.expenseType
+        ? doc.splitTextToSize(rowData.expenseType, COL_W_IMG - 6)[0]
+        : r.category;
+      doc.text(expLabel, x + 3, iy + 18.5);
+    });
+
+    y += CELL_H + ROW_GAP;
+  });
+
+  pdfFooter(doc, PW, PH);
+  doc.save(`Overdue_Expense_Report_${header.month.replace(/\s+/g, "_") || new Date().toLocaleDateString("en-US").replace(/\//g, "-")}.pdf`);
+}
+
+/* ─── Main ArchiveForm component ─────────────────────────── */
+export default function ArchiveForm({
+  receipts,
+  userId,
+  defaultName,
+  defaultOffice,
+}: {
+  receipts: Receipt[];
+  userId: string;
+  defaultName: string;
+  defaultOffice: string;
+}) {
+  const KEY = storageKey(userId);
+
+  const [formData, setFormData] = useState<FormData>(() => {
+    // Build initial rows from receipts
+    const initialRows: Record<string, RowData> = {};
+    receipts.forEach(r => { initialRows[r.id] = defaultRow(r); });
+
+    return {
+      header: {
+        name:   defaultName,
+        office: defaultOffice,
+        month:  deriveMonth(receipts),
+      },
+      rows: initialRows,
+    };
+  });
+
+  const [exporting, setExporting] = useState(false);
+  const [saved,     setSaved]     = useState(false);
+
+  // Load persisted data from localStorage on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(KEY);
+      if (stored) {
+        const parsed: FormData = JSON.parse(stored);
+        // Merge: keep any new receipts not in storage, carry forward saved data for existing ones
+        setFormData(prev => {
+          const merged: Record<string, RowData> = {};
+          receipts.forEach(r => {
+            merged[r.id] = parsed.rows?.[r.id] ?? defaultRow(r);
+          });
+          return {
+            header: parsed.header ?? prev.header,
+            rows: merged,
+          };
+        });
+      }
+    } catch { /* ignore */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Auto-save to localStorage whenever formData changes
+  useEffect(() => {
+    try {
+      localStorage.setItem(KEY, JSON.stringify(formData));
+    } catch { /* ignore */ }
+  }, [formData, KEY]);
+
+  const updateHeader = useCallback((field: keyof FormData["header"], value: string) => {
+    setFormData(prev => ({ ...prev, header: { ...prev.header, [field]: value } }));
+  }, []);
+
+  const updateRow = useCallback((receiptId: string, field: keyof RowData, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      rows: {
+        ...prev.rows,
+        [receiptId]: { ...prev.rows[receiptId], [field]: value },
+      },
+    }));
+  }, []);
+
+  const completedCount = receipts.filter(r => !!formData.rows[r.id]?.expenseType).length;
+  const total          = receipts.reduce((s, r) => s + Number(r.amount), 0);
+
+  async function handleExport() {
+    setExporting(true);
+    try {
+      await exportCombinedPDF(receipts, formData.rows, formData.header);
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  function handleManualSave() {
+    try {
+      localStorage.setItem(KEY, JSON.stringify(formData));
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch { /* ignore */ }
+  }
+
+  return (
+    <div>
+      {/* ── Form Header ──────────────────────────────────────── */}
+      <div
+        className="rounded-2xl mb-6 p-4"
+        style={{ background: "#ffffff", border: "1px solid #e2e8f0", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
+        <p className="text-[11px] font-bold uppercase tracking-widest text-gray-400 mb-3">
+          Form Header
+        </p>
+        <div className="space-y-3">
+          <div>
+            <label className="block text-[11px] font-semibold text-gray-500 mb-1">Employee Name</label>
+            <input
+              type="text"
+              value={formData.header.name}
+              onChange={e => updateHeader("name", e.target.value)}
+              className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
+              style={{ background: "#f8fafc", border: "1px solid #e2e8f0", color: "#111827" }}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[11px] font-semibold text-gray-500 mb-1">Office</label>
+              <input
+                type="text"
+                value={formData.header.office}
+                onChange={e => updateHeader("office", e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
+                style={{ background: "#f8fafc", border: "1px solid #e2e8f0", color: "#111827" }}
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-semibold text-gray-500 mb-1">Month</label>
+              <input
+                type="text"
+                value={formData.header.month}
+                onChange={e => updateHeader("month", e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
+                style={{ background: "#f8fafc", border: "1px solid #e2e8f0", color: "#111827" }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Progress bar ─────────────────────────────────────── */}
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex-1 mr-4">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[11px] font-semibold text-gray-500">
+              {completedCount} of {receipts.length} receipts categorized
+            </span>
+            <span className="text-[11px] font-semibold" style={{ color: "#00283C" }}>
+              ${total.toFixed(2)} total
+            </span>
+          </div>
+          <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "#e2e8f0" }}>
+            <div
+              className="h-full rounded-full transition-all duration-300"
+              style={{
+                width: `${receipts.length ? (completedCount / receipts.length) * 100 : 0}%`,
+                background: completedCount === receipts.length ? "#22c55e" : "#00D6F2",
+              }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* ── Receipt form cards ────────────────────────────────── */}
+      {receipts.map(receipt => (
+        <ReceiptFormCard
+          key={receipt.id}
+          receipt={receipt}
+          row={formData.rows[receipt.id] ?? defaultRow(receipt)}
+          onChange={(field, value) => updateRow(receipt.id, field, value)}
+        />
+      ))}
+
+      {/* ── Action buttons ────────────────────────────────────── */}
+      <div className="flex gap-3 mt-2">
+        <button
+          onClick={handleManualSave}
+          className="flex-1 py-3 rounded-xl text-sm font-bold transition-all"
+          style={{ background: "#f1f5f9", color: saved ? "#22c55e" : "#00283C", border: "1px solid #e2e8f0" }}>
+          {saved ? "✓ Saved" : "Save Draft"}
+        </button>
+        <button
+          onClick={handleExport}
+          disabled={exporting}
+          className="flex-1 py-3 rounded-xl text-sm font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{ background: "#ef4444", color: "#ffffff" }}>
+          {exporting ? "Generating…" : "Export Full Report"}
+        </button>
+      </div>
+      <p className="text-[11px] text-center text-gray-400 mt-2">
+        Exports paper form + all receipt images · Draft auto-saves as you type
+      </p>
+    </div>
+  );
+}
