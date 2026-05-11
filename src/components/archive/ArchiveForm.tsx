@@ -155,160 +155,207 @@ const categoryEmoji: Record<string, string> = {
 function ReceiptFormCard({
   receipt,
   row,
+  collapsed,
   onChange,
+  onToggle,
+  onSave,
 }: {
   receipt: Receipt;
   row: RowData;
+  collapsed: boolean;
   onChange: (field: keyof RowData, value: string) => void;
+  onToggle: () => void;
+  onSave: () => void;
 }) {
-  const days = daysOld(receipt.transaction_date);
+  const [saveFlash, setSaveFlash] = useState(false);
   const isComplete = !!row.expenseType;
+
+  function handleSave() {
+    onSave();
+    setSaveFlash(true);
+    setTimeout(() => setSaveFlash(false), 1500);
+  }
 
   return (
     <div
-      className="rounded-2xl mb-4 overflow-hidden"
+      className="rounded-2xl mb-3 overflow-hidden"
       style={{ border: "1px solid #e2e8f0", background: "#ffffff", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
 
-      {/* Card header — receipt summary */}
-      <div
-        className="flex items-center gap-3 px-4 py-3"
-        style={{ background: "#f8fafc", borderBottom: "1px solid #f1f5f9" }}>
+      {/* ── Clickable header — always visible ── */}
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-black/[0.02]"
+        style={{ background: "#f8fafc", borderBottom: collapsed ? "none" : "1px solid #f1f5f9" }}>
+
+        {/* Emoji */}
         <div
           className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 text-lg"
           style={{ background: "#ffffff", border: "1px solid #e2e8f0" }}>
           {categoryEmoji[receipt.category] ?? "📄"}
         </div>
+
+        {/* Info */}
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold truncate" style={{ color: "#00283C" }}>
             {receipt.vendor_name}
           </p>
-          <p className="text-[11px] text-gray-400 mt-0.5">
-            {new Date(receipt.transaction_date).toLocaleDateString("en-US", {
-              month: "short", day: "numeric", year: "numeric",
-            })}
-            {" · "}{receipt.source.replace(/_/g, " ")}
-          </p>
+          {collapsed && row.expenseType ? (
+            <p className="text-[11px] font-medium truncate mt-0.5" style={{ color: "#00D6F2" }}>
+              {row.expenseType}
+            </p>
+          ) : (
+            <p className="text-[11px] text-gray-400 mt-0.5">
+              {new Date(receipt.transaction_date).toLocaleDateString("en-US", {
+                month: "short", day: "numeric", year: "numeric",
+              })}
+              {" · "}{receipt.source.replace(/_/g, " ")}
+            </p>
+          )}
         </div>
-        {/* Completion indicator */}
+
+        {/* Right side: amount + status dot + chevron */}
         <div className="flex items-center gap-2 flex-shrink-0">
           <span className="text-sm font-bold" style={{ color: "#00283C" }}>
             ${Number(receipt.amount).toFixed(2)}
           </span>
+          {/* Status dot */}
           <div
             className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
             style={{
-              background: isComplete ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.1)",
-              border: `1px solid ${isComplete ? "rgba(34,197,94,0.4)" : "rgba(239,68,68,0.3)"}`,
-            }}
-            title={isComplete ? "Ready to export" : "Expense type required"}>
+              background: isComplete ? "rgba(34,197,94,0.15)" : "rgba(245,158,11,0.12)",
+              border: `1px solid ${isComplete ? "rgba(34,197,94,0.4)" : "rgba(245,158,11,0.35)"}`,
+            }}>
             {isComplete ? (
               <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
                 <path d="M2 5l2.5 2.5L8 3" stroke="#22c55e" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             ) : (
               <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                <path d="M5 3v2.5M5 7v.2" stroke="#ef4444" strokeWidth="1.3" strokeLinecap="round"/>
+                <path d="M5 2.5v3M5 7.5v.2" stroke="#f59e0b" strokeWidth="1.3" strokeLinecap="round"/>
               </svg>
             )}
           </div>
+          {/* Chevron */}
+          <svg
+            width="14" height="14" viewBox="0 0 14 14" fill="none"
+            className="flex-shrink-0 transition-transform duration-200"
+            style={{ transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)" }}>
+            <path d="M3 5l4 4 4-4" stroke="#9ca3af" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
         </div>
-      </div>
+      </button>
 
-      {/* Form fields */}
-      <div className="px-4 py-4 space-y-3">
+      {/* ── Expandable form fields ── */}
+      {!collapsed && (
+        <div className="px-4 py-4 space-y-3">
 
-        {/* Expense Type — required */}
-        <div>
-          <label className="block text-[11px] font-semibold text-gray-500 mb-1">
-            Expense Type <span style={{ color: "#ef4444" }}>*</span>
-          </label>
-          <CategoryPicker
-            value={row.expenseType}
-            onChange={v => onChange("expenseType", v)}
-          />
-        </div>
-
-        {/* Description */}
-        <div>
-          <label className="block text-[11px] font-semibold text-gray-500 mb-1">Description</label>
-          <input
-            type="text"
-            value={row.description}
-            onChange={e => onChange("description", e.target.value)}
-            placeholder="Vendor / purpose…"
-            className="w-full px-3 py-2.5 rounded-xl text-sm outline-none transition-colors"
-            style={{ background: "#f8fafc", border: "1px solid #e2e8f0", color: "#111827" }}
-          />
-        </div>
-
-        {/* Customer + Contacts */}
-        <div className="grid grid-cols-2 gap-2">
+          {/* Expense Type */}
           <div>
-            <label className="block text-[11px] font-semibold text-gray-500 mb-1">Customer</label>
+            <label className="block text-[11px] font-semibold text-gray-500 mb-1">
+              Expense Type <span style={{ color: "#ef4444" }}>*</span>
+            </label>
+            <CategoryPicker
+              value={row.expenseType}
+              onChange={v => onChange("expenseType", v)}
+            />
+          </div>
+
+          {/* Description */}
+          <div>
+            <label className="block text-[11px] font-semibold text-gray-500 mb-1">Description</label>
             <input
               type="text"
-              value={row.customer}
-              onChange={e => onChange("customer", e.target.value)}
-              placeholder="Client / company…"
+              value={row.description}
+              onChange={e => onChange("description", e.target.value)}
+              placeholder="Vendor / purpose…"
               className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
               style={{ background: "#f8fafc", border: "1px solid #e2e8f0", color: "#111827" }}
             />
           </div>
-          <div>
-            <label className="block text-[11px] font-semibold text-gray-500 mb-1">Contacts</label>
-            <input
-              type="text"
-              value={row.contacts}
-              onChange={e => onChange("contacts", e.target.value)}
-              placeholder="Names attended…"
-              className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
-              style={{ background: "#f8fafc", border: "1px solid #e2e8f0", color: "#111827" }}
-            />
-          </div>
-        </div>
 
-        {/* Group Size + Parking + Tip */}
-        <div className="grid grid-cols-3 gap-2">
-          <div>
-            <label className="block text-[11px] font-semibold text-gray-500 mb-1">Group Size</label>
-            <input
-              type="number"
-              min="1"
-              value={row.groupSize}
-              onChange={e => onChange("groupSize", e.target.value)}
-              placeholder="—"
-              className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
-              style={{ background: "#f8fafc", border: "1px solid #e2e8f0", color: "#111827" }}
-            />
+          {/* Customer + Contacts */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-[11px] font-semibold text-gray-500 mb-1">Customer</label>
+              <input
+                type="text"
+                value={row.customer}
+                onChange={e => onChange("customer", e.target.value)}
+                placeholder="Client / company…"
+                className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
+                style={{ background: "#f8fafc", border: "1px solid #e2e8f0", color: "#111827" }}
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-semibold text-gray-500 mb-1">Contacts</label>
+              <input
+                type="text"
+                value={row.contacts}
+                onChange={e => onChange("contacts", e.target.value)}
+                placeholder="Names attended…"
+                className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
+                style={{ background: "#f8fafc", border: "1px solid #e2e8f0", color: "#111827" }}
+              />
+            </div>
           </div>
-          <div>
-            <label className="block text-[11px] font-semibold text-gray-500 mb-1">Parking/Tolls</label>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={row.parkingTolls}
-              onChange={e => onChange("parkingTolls", e.target.value)}
-              placeholder="$0.00"
-              className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
-              style={{ background: "#f8fafc", border: "1px solid #e2e8f0", color: "#111827" }}
-            />
+
+          {/* Group Size + Parking + Tip */}
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <label className="block text-[11px] font-semibold text-gray-500 mb-1">Group Size</label>
+              <input
+                type="number"
+                min="1"
+                value={row.groupSize}
+                onChange={e => onChange("groupSize", e.target.value)}
+                placeholder="—"
+                className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
+                style={{ background: "#f8fafc", border: "1px solid #e2e8f0", color: "#111827" }}
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-semibold text-gray-500 mb-1">Parking/Tolls</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={row.parkingTolls}
+                onChange={e => onChange("parkingTolls", e.target.value)}
+                placeholder="$0.00"
+                className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
+                style={{ background: "#f8fafc", border: "1px solid #e2e8f0", color: "#111827" }}
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-semibold text-gray-500 mb-1">Tip</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={row.tip}
+                onChange={e => onChange("tip", e.target.value)}
+                placeholder="$0.00"
+                className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
+                style={{ background: "#f8fafc", border: "1px solid #e2e8f0", color: "#111827" }}
+              />
+            </div>
           </div>
-          <div>
-            <label className="block text-[11px] font-semibold text-gray-500 mb-1">Tip</label>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={row.tip}
-              onChange={e => onChange("tip", e.target.value)}
-              placeholder="$0.00"
-              className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
-              style={{ background: "#f8fafc", border: "1px solid #e2e8f0", color: "#111827" }}
-            />
-          </div>
+
+          {/* Per-card save button */}
+          <button
+            type="button"
+            onClick={handleSave}
+            className="w-full py-2.5 rounded-xl text-sm font-bold transition-all mt-1"
+            style={{
+              background: saveFlash ? "rgba(34,197,94,0.12)" : "#f1f5f9",
+              color: saveFlash ? "#16a34a" : "#00283C",
+              border: saveFlash ? "1px solid rgba(34,197,94,0.3)" : "1px solid #e2e8f0",
+            }}>
+            {saveFlash ? "✓ Saved" : "Save & Collapse"}
+          </button>
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -686,8 +733,8 @@ export default function ArchiveForm({
     };
   });
 
-  const [exporting, setExporting] = useState(false);
-  const [saved,     setSaved]     = useState(false);
+  const [exporting,      setExporting]      = useState(false);
+  const [collapsedCards, setCollapsedCards] = useState<Set<string>>(new Set());
 
   // Load persisted data from localStorage on mount
   useEffect(() => {
@@ -695,7 +742,6 @@ export default function ArchiveForm({
       const stored = localStorage.getItem(KEY);
       if (stored) {
         const parsed: FormData = JSON.parse(stored);
-        // Merge: keep any new receipts not in storage, carry forward saved data for existing ones
         setFormData(prev => {
           const merged: Record<string, RowData> = {};
           receipts.forEach(r => {
@@ -706,6 +752,13 @@ export default function ArchiveForm({
             rows: merged,
           };
         });
+        // Auto-collapse cards that already have an expense type saved
+        const alreadySaved = new Set(
+          receipts
+            .filter(r => !!parsed.rows?.[r.id]?.expenseType)
+            .map(r => r.id)
+        );
+        setCollapsedCards(alreadySaved);
       }
     } catch { /* ignore */ }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -732,6 +785,22 @@ export default function ArchiveForm({
     }));
   }, []);
 
+  const toggleCard = useCallback((id: string) => {
+    setCollapsedCards(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }, []);
+
+  const saveCard = useCallback((id: string) => {
+    setFormData(prev => {
+      try { localStorage.setItem(KEY, JSON.stringify(prev)); } catch { /* ignore */ }
+      return prev;
+    });
+    setCollapsedCards(prev => new Set([...prev, id]));
+  }, [KEY]);
+
   const completedCount = receipts.filter(r => !!formData.rows[r.id]?.expenseType).length;
   const total          = receipts.reduce((s, r) => s + Number(r.amount), 0);
 
@@ -742,14 +811,6 @@ export default function ArchiveForm({
     } finally {
       setExporting(false);
     }
-  }
-
-  function handleManualSave() {
-    try {
-      localStorage.setItem(KEY, JSON.stringify(formData));
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-    } catch { /* ignore */ }
   }
 
   return (
@@ -826,28 +887,23 @@ export default function ArchiveForm({
           key={receipt.id}
           receipt={receipt}
           row={formData.rows[receipt.id] ?? defaultRow(receipt)}
+          collapsed={collapsedCards.has(receipt.id)}
           onChange={(field, value) => updateRow(receipt.id, field, value)}
+          onToggle={() => toggleCard(receipt.id)}
+          onSave={() => saveCard(receipt.id)}
         />
       ))}
 
-      {/* ── Action buttons ────────────────────────────────────── */}
-      <div className="flex gap-3 mt-2">
-        <button
-          onClick={handleManualSave}
-          className="flex-1 py-3 rounded-xl text-sm font-bold transition-all"
-          style={{ background: "#f1f5f9", color: saved ? "#22c55e" : "#00283C", border: "1px solid #e2e8f0" }}>
-          {saved ? "✓ Saved" : "Save Draft"}
-        </button>
-        <button
-          onClick={handleExport}
-          disabled={exporting}
-          className="flex-1 py-3 rounded-xl text-sm font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-          style={{ background: "#ef4444", color: "#ffffff" }}>
-          {exporting ? "Generating…" : "Export Full Report"}
-        </button>
-      </div>
+      {/* ── Export button ─────────────────────────────────────── */}
+      <button
+        onClick={handleExport}
+        disabled={exporting}
+        className="w-full py-3 rounded-xl text-sm font-bold transition-all mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
+        style={{ background: "#00283C", color: "#ffffff" }}>
+        {exporting ? "Generating…" : "Export Full Report"}
+      </button>
       <p className="text-[11px] text-center text-gray-400 mt-2">
-        Exports paper form + all receipt images · Draft auto-saves as you type
+        Exports paper form + all receipt images · Progress auto-saves as you type
       </p>
     </div>
   );
