@@ -37,6 +37,118 @@ function storageKey(userId: string) {
   return `overdue_form_${userId}`;
 }
 
+/* ─── Signature storage helpers ─────────────────────────── */
+function sigKey(userId: string)   { return `ig_signature_${userId}`; }
+function batchKey(userId: string) { return `ig_signed_batches_${userId}`; }
+
+function batchHash(receipts: Receipt[]): string {
+  return receipts.map(r => r.id).sort().join(",");
+}
+
+function getSavedSignature(userId: string): string {
+  try { return localStorage.getItem(sigKey(userId)) ?? ""; } catch { return ""; }
+}
+
+function isBatchSigned(userId: string, receipts: Receipt[]): boolean {
+  try {
+    const stored = localStorage.getItem(batchKey(userId));
+    if (!stored) return false;
+    const batches: Record<string, string> = JSON.parse(stored);
+    return !!batches[batchHash(receipts)];
+  } catch { return false; }
+}
+
+function signBatch(userId: string, receipts: Receipt[], signature: string) {
+  try {
+    localStorage.setItem(sigKey(userId), signature);
+    const stored = localStorage.getItem(batchKey(userId));
+    const batches: Record<string, string> = stored ? JSON.parse(stored) : {};
+    batches[batchHash(receipts)] = signature;
+    localStorage.setItem(batchKey(userId), JSON.stringify(batches));
+  } catch { /* ignore */ }
+}
+
+function getBatchSignature(userId: string, receipts: Receipt[]): string {
+  try {
+    const stored = localStorage.getItem(batchKey(userId));
+    if (!stored) return "";
+    const batches: Record<string, string> = JSON.parse(stored);
+    return batches[batchHash(receipts)] ?? "";
+  } catch { return ""; }
+}
+
+/* ─── Signature modal ────────────────────────────────────── */
+function SignatureModal({
+  defaultSig,
+  onSign,
+  onCancel,
+}: {
+  defaultSig: string;
+  onSign: (sig: string) => void;
+  onCancel: () => void;
+}) {
+  const [sig, setSig] = useState(defaultSig);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)" }}>
+      <div
+        className="w-full max-w-sm rounded-2xl p-6"
+        style={{ background: "#00283C", border: "1px solid rgba(0,214,242,0.3)", boxShadow: "0 24px 64px rgba(0,0,0,0.4)" }}>
+
+        <p className="text-[11px] font-bold uppercase tracking-widest mb-1" style={{ color: "#00D6F2" }}>
+          Electronic Signature
+        </p>
+        <p className="text-base font-bold text-white mb-1">Sign Expense Report</p>
+        <p className="text-xs mb-5" style={{ color: "rgba(255,255,255,0.5)" }}>
+          By typing your full name, you certify that all expenses are accurate and comply with Insight Global policy.
+        </p>
+
+        <label className="block text-[11px] font-semibold mb-1.5" style={{ color: "rgba(255,255,255,0.6)" }}>
+          Full Name <span style={{ color: "#ef4444" }}>*</span>
+        </label>
+        <input
+          autoFocus
+          type="text"
+          placeholder="Type your full name…"
+          value={sig}
+          onChange={e => setSig(e.target.value)}
+          onKeyDown={e => { if (e.key === "Enter" && sig.trim()) onSign(sig.trim()); }}
+          className="w-full px-3 py-2.5 rounded-xl text-sm outline-none italic font-medium mb-5"
+          style={{
+            background: "rgba(255,255,255,0.08)",
+            border: "1px solid rgba(0,214,242,0.4)",
+            color: "#ffffff",
+          }}
+        />
+
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
+            style={{ background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.7)", border: "1px solid rgba(255,255,255,0.15)" }}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => { if (sig.trim()) onSign(sig.trim()); }}
+            disabled={!sig.trim()}
+            className="flex-1 py-2.5 rounded-xl text-sm font-bold disabled:opacity-40 transition-opacity"
+            style={{ background: "#00D6F2", color: "#00283C" }}>
+            Sign &amp; Export
+          </button>
+        </div>
+
+        <p className="text-[10px] text-center mt-3" style={{ color: "rgba(255,255,255,0.3)" }}>
+          Your signature will be saved for future overdue exports
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function deriveMonth(receipts: Receipt[]): string {
   if (!receipts.length) return "";
   const dates = receipts.map(r => r.transaction_date).sort();
@@ -434,6 +546,7 @@ async function exportCombinedPDF(
   receipts: Receipt[],
   rows: Record<string, RowData>,
   header: { name: string; office: string; month: string },
+  signature: string,
 ) {
   const { default: jsPDF } = await import("jspdf");
 
@@ -626,6 +739,34 @@ async function exportCombinedPDF(
   doc.setTextColor(0, 40, 60);
   doc.text(fmt$(totalAmount + totalParking + totalTip), PW - MR, y + 5, { align: "right" });
 
+  // Signature block
+  y += 14;
+  if (y + 18 > PH - 22) {
+    pdfFooter(doc, PW, PH);
+    doc.addPage();
+    y = 14;
+  }
+  doc.setDrawColor(0, 40, 60);
+  doc.setLineWidth(0.3);
+  doc.line(ML, y + 10, ML + 90, y + 10);
+  doc.line(ML + 100, y + 10, ML + 140, y + 10);
+
+  doc.setFont("helvetica", "bolditalic");
+  doc.setFontSize(10);
+  doc.setTextColor(0, 40, 60);
+  doc.text(signature || header.name, ML, y + 9);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(6.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text("Employee Signature", ML, y + 14);
+  doc.text("Date", ML + 100, y + 14);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(0, 40, 60);
+  doc.text(new Date().toLocaleDateString("en-US", { month: "numeric", day: "numeric", year: "numeric" }), ML + 100, y + 9);
+
   // ── Part 2: Receipt Images ─────────────────────────────────
   pdfFooter(doc, PW, PH);
   doc.addPage();
@@ -772,6 +913,7 @@ export default function ArchiveForm({
   const [exporting,      setExporting]      = useState(false);
   const [formCollapsed,  setFormCollapsed]  = useState(false);
   const [collapsedCards, setCollapsedCards] = useState<Set<string>>(new Set());
+  const [showSignModal,  setShowSignModal]  = useState(false);
 
   // Load persisted data from localStorage on mount
   useEffect(() => {
@@ -867,13 +1009,23 @@ export default function ArchiveForm({
   const completedCount = receipts.filter(r => !!formData.rows[r.id]?.expenseType).length;
   const total          = receipts.reduce((s, r) => s + Number(r.amount), 0);
 
-  async function handleExport() {
+  async function runExport(signature: string) {
     setExporting(true);
     try {
-      await exportCombinedPDF(receipts, formData.rows, formData.header);
+      await exportCombinedPDF(receipts, formData.rows, formData.header, signature);
     } finally {
       setExporting(false);
     }
+  }
+
+  function handleExport() {
+    // If this batch is already signed, export immediately with the saved signature
+    if (isBatchSigned(userId, receipts)) {
+      runExport(getBatchSignature(userId, receipts));
+      return;
+    }
+    // Otherwise show the signature modal
+    setShowSignModal(true);
   }
 
   // If all receipts were deleted client-side, show empty state
@@ -889,6 +1041,19 @@ export default function ArchiveForm({
 
   return (
     <div>
+      {/* ── Signature modal ──────────────────────────────────── */}
+      {showSignModal && (
+        <SignatureModal
+          defaultSig={getSavedSignature(userId)}
+          onSign={(sig) => {
+            signBatch(userId, receipts, sig);
+            setShowSignModal(false);
+            runExport(sig);
+          }}
+          onCancel={() => setShowSignModal(false)}
+        />
+      )}
+
       {/* ── Section header — collapses entire form ───────────── */}
       <button
         type="button"
@@ -1005,7 +1170,7 @@ export default function ArchiveForm({
         disabled={exporting}
         className="w-full py-3 rounded-xl text-sm font-bold transition-all mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
         style={{ background: "#00283C", color: "#ffffff" }}>
-        {exporting ? "Generating…" : "Export Full Report"}
+        {exporting ? "Generating…" : isBatchSigned(userId, receipts) ? "Export Full Report" : "Sign & Export Full Report"}
       </button>
       <p className="text-[11px] text-center text-gray-400 mt-2">
         Exports paper form + all receipt images · Progress auto-saves as you type
