@@ -159,6 +159,7 @@ function ReceiptFormCard({
   onChange,
   onToggle,
   onSave,
+  onDelete,
 }: {
   receipt: Receipt;
   row: RowData;
@@ -166,8 +167,10 @@ function ReceiptFormCard({
   onChange: (field: keyof RowData, value: string) => void;
   onToggle: () => void;
   onSave: () => void;
+  onDelete: () => void;
 }) {
-  const [saveFlash, setSaveFlash] = useState(false);
+  const [saveFlash,   setSaveFlash]   = useState(false);
+  const [confirming,  setConfirming]  = useState(false);
   const isComplete = !!row.expenseType;
 
   function handleSave() {
@@ -354,6 +357,37 @@ function ReceiptFormCard({
             }}>
             {saveFlash ? "✓ Saved" : "Save & Collapse"}
           </button>
+
+          {/* Delete */}
+          {!confirming ? (
+            <button
+              type="button"
+              onClick={() => setConfirming(true)}
+              className="w-full py-2 text-xs font-semibold text-gray-400 hover:text-red-500 transition-colors">
+              Delete receipt
+            </button>
+          ) : (
+            <div
+              className="flex items-center justify-between px-3 py-2.5 rounded-xl mt-1"
+              style={{ background: "#fef2f2", border: "1px solid rgba(239,68,68,0.2)" }}>
+              <p className="text-xs font-semibold text-red-600">Delete this receipt?</p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setConfirming(false)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-600"
+                  style={{ background: "#f1f5f9", border: "1px solid #e2e8f0" }}>
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={onDelete}
+                  className="px-3 py-1.5 rounded-lg bg-red-500 text-xs font-semibold text-white">
+                  Delete
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -706,7 +740,7 @@ async function exportCombinedPDF(
 
 /* ─── Main ArchiveForm component ─────────────────────────── */
 export default function ArchiveForm({
-  receipts,
+  receipts: initialReceipts,
   userId,
   defaultName,
   defaultOffice,
@@ -718,22 +752,25 @@ export default function ArchiveForm({
 }) {
   const KEY = storageKey(userId);
 
+  const [receipts, setReceipts] = useState<Receipt[]>(initialReceipts);
+
   const [formData, setFormData] = useState<FormData>(() => {
     // Build initial rows from receipts
     const initialRows: Record<string, RowData> = {};
-    receipts.forEach(r => { initialRows[r.id] = defaultRow(r); });
+    initialReceipts.forEach(r => { initialRows[r.id] = defaultRow(r); });
 
     return {
       header: {
         name:   defaultName,
         office: defaultOffice,
-        month:  deriveMonth(receipts),
+        month:  deriveMonth(initialReceipts),
       },
       rows: initialRows,
     };
   });
 
   const [exporting,      setExporting]      = useState(false);
+  const [formCollapsed,  setFormCollapsed]  = useState(false);
   const [collapsedCards, setCollapsedCards] = useState<Set<string>>(new Set());
 
   // Load persisted data from localStorage on mount
@@ -801,6 +838,33 @@ export default function ArchiveForm({
     setCollapsedCards(prev => new Set([...prev, id]));
   }, [KEY]);
 
+  const handleDelete = useCallback(async (id: string) => {
+    try {
+      const res = await fetch(`/api/receipts/${id}`, { method: "DELETE" });
+      if (!res.ok) return;
+      setReceipts(prev => prev.filter(r => r.id !== id));
+      setFormData(prev => {
+        const rows = { ...prev.rows };
+        delete rows[id];
+        return { ...prev, rows };
+      });
+      setCollapsedCards(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      // Clean up localStorage
+      try {
+        const stored = localStorage.getItem(KEY);
+        if (stored) {
+          const parsed: FormData = JSON.parse(stored);
+          if (parsed.rows) delete parsed.rows[id];
+          localStorage.setItem(KEY, JSON.stringify(parsed));
+        }
+      } catch { /* ignore */ }
+    } catch { /* ignore */ }
+  }, [KEY]);
+
   const completedCount = receipts.filter(r => !!formData.rows[r.id]?.expenseType).length;
   const total          = receipts.reduce((s, r) => s + Number(r.amount), 0);
 
@@ -813,8 +877,49 @@ export default function ArchiveForm({
     }
   }
 
+  // If all receipts were deleted client-side, show empty state
+  if (receipts.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-center">
+        <p className="text-2xl mb-3">✅</p>
+        <p className="text-gray-500 text-sm font-medium">No overdue receipts</p>
+        <p className="text-gray-400 text-xs mt-1">All your receipts are within the 60-day window.</p>
+      </div>
+    );
+  }
+
   return (
     <div>
+      {/* ── Section header — collapses entire form ───────────── */}
+      <button
+        type="button"
+        onClick={() => setFormCollapsed(c => !c)}
+        className="w-full flex items-center justify-between mb-4 px-1 py-1 rounded-xl transition-colors hover:bg-black/[0.03] active:bg-black/[0.05]">
+        <div className="flex items-center gap-2 min-w-0">
+          <svg
+            width="14" height="14" viewBox="0 0 14 14" fill="none"
+            className="flex-shrink-0 transition-transform duration-200"
+            style={{ transform: formCollapsed ? "rotate(-90deg)" : "rotate(0deg)" }}>
+            <path d="M3 5l4 4 4-4" stroke="#9ca3af" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          <div className="text-left min-w-0">
+            <h2 className="text-sm font-bold" style={{ color: "#00283C" }}>Overdue Expenses</h2>
+            <p className="text-[11px] text-gray-400">
+              {completedCount} of {receipts.length} categorized
+            </p>
+          </div>
+        </div>
+        <div className="text-right flex-shrink-0">
+          <p className="text-sm font-bold" style={{ color: "#00283C" }}>${total.toFixed(2)}</p>
+          <p className="text-[11px] text-gray-400">
+            {receipts.length} receipt{receipts.length !== 1 ? "s" : ""}
+          </p>
+        </div>
+      </button>
+
+      {/* ── Collapsible body ─────────────────────────────────── */}
+      {!formCollapsed && (
+        <>
       {/* ── Form Header ──────────────────────────────────────── */}
       <div
         className="rounded-2xl mb-6 p-4"
@@ -891,6 +996,7 @@ export default function ArchiveForm({
           onChange={(field, value) => updateRow(receipt.id, field, value)}
           onToggle={() => toggleCard(receipt.id)}
           onSave={() => saveCard(receipt.id)}
+          onDelete={() => handleDelete(receipt.id)}
         />
       ))}
 
@@ -905,6 +1011,8 @@ export default function ArchiveForm({
       <p className="text-[11px] text-center text-gray-400 mt-2">
         Exports paper form + all receipt images · Progress auto-saves as you type
       </p>
+        </>
+      )}
     </div>
   );
 }
