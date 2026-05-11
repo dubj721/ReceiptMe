@@ -351,11 +351,11 @@ function ReceiptFormCard({
             onClick={handleSave}
             className="w-full py-2.5 rounded-xl text-sm font-bold transition-all mt-1"
             style={{
-              background: saveFlash ? "rgba(34,197,94,0.12)" : "#f1f5f9",
+              background: saveFlash ? "rgba(34,197,94,0.12)" : "#00D6F2",
               color: saveFlash ? "#16a34a" : "#00283C",
-              border: saveFlash ? "1px solid rgba(34,197,94,0.3)" : "1px solid #e2e8f0",
+              border: saveFlash ? "1px solid rgba(34,197,94,0.3)" : "1px solid #00D6F2",
             }}>
-            {saveFlash ? "✓ Saved" : "Save & Collapse"}
+            {saveFlash ? "✓ Saved" : "Save"}
           </button>
 
           {/* Delete */}
@@ -835,7 +835,6 @@ export default function ArchiveForm({
       try { localStorage.setItem(KEY, JSON.stringify(prev)); } catch { /* ignore */ }
       return prev;
     });
-    setCollapsedCards(prev => new Set([...prev, id]));
   }, [KEY]);
 
   const handleDelete = useCallback(async (id: string) => {
