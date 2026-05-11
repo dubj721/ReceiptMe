@@ -34,11 +34,13 @@ export default async function PacketsPage() {
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
-  // Flatten packet_receipts join into receipts array
+  // Flatten packet_receipts join into receipts array — exclude overdue/archived receipts
   const typedPackets = (packets ?? []).map((p: any) => ({
     ...p,
-    receipts: (p.packet_receipts ?? []).map((pr: any) => pr.receipt).filter(Boolean),
-  })) as (Packet & { receipts: Receipt[] })[];
+    receipts: (p.packet_receipts ?? [])
+      .map((pr: any) => pr.receipt)
+      .filter((r: any) => r && r.status === "active"),
+  })).filter((p: any) => p.receipts.length > 0) as (Packet & { receipts: Receipt[] })[];
 
   return (
     <div className="px-4 pt-2 md:pt-0 pb-8">
