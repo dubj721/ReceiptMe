@@ -922,40 +922,40 @@ export default function ArchiveForm({
       {/* ── Form Header ──────────────────────────────────────── */}
       <div
         className="rounded-2xl mb-6 p-4"
-        style={{ background: "#ffffff", border: "1px solid #e2e8f0", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
-        <p className="text-[11px] font-bold uppercase tracking-widest text-gray-400 mb-3">
+        style={{ background: "#00283C", border: "1px solid #00283C", boxShadow: "0 2px 12px rgba(0,40,60,0.18)" }}>
+        <p className="text-[11px] font-bold uppercase tracking-widest mb-3" style={{ color: "#00D6F2" }}>
           Form Header
         </p>
         <div className="space-y-3">
           <div>
-            <label className="block text-[11px] font-semibold text-gray-500 mb-1">Employee Name</label>
+            <label className="block text-[11px] font-semibold mb-1" style={{ color: "rgba(255,255,255,0.6)" }}>Employee Name</label>
             <input
               type="text"
               value={formData.header.name}
               onChange={e => updateHeader("name", e.target.value)}
               className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
-              style={{ background: "#f8fafc", border: "1px solid #e2e8f0", color: "#111827" }}
+              style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "#ffffff" }}
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[11px] font-semibold text-gray-500 mb-1">Office</label>
+              <label className="block text-[11px] font-semibold mb-1" style={{ color: "rgba(255,255,255,0.6)" }}>Office</label>
               <input
                 type="text"
                 value={formData.header.office}
                 onChange={e => updateHeader("office", e.target.value)}
                 className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
-                style={{ background: "#f8fafc", border: "1px solid #e2e8f0", color: "#111827" }}
+                style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "#ffffff" }}
               />
             </div>
             <div>
-              <label className="block text-[11px] font-semibold text-gray-500 mb-1">Month</label>
+              <label className="block text-[11px] font-semibold mb-1" style={{ color: "rgba(255,255,255,0.6)" }}>Month</label>
               <input
                 type="text"
                 value={formData.header.month}
                 onChange={e => updateHeader("month", e.target.value)}
                 className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
-                style={{ background: "#f8fafc", border: "1px solid #e2e8f0", color: "#111827" }}
+                style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "#ffffff" }}
               />
             </div>
           </div>
