@@ -89,10 +89,18 @@ function SignatureModal({
 }) {
   const [sig, setSig] = useState(defaultSig);
 
+  // Prevent background scroll while modal is open
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
-      style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)" }}>
+      className="fixed inset-0 z-50 flex items-center justify-center p-6"
+      style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(6px)" }}
+      onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
       <div
         className="w-full max-w-sm rounded-2xl p-6"
         style={{ background: "#00283C", border: "1px solid rgba(0,214,242,0.3)", boxShadow: "0 24px 64px rgba(0,0,0,0.4)" }}>
