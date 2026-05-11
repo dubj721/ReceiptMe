@@ -3,6 +3,19 @@ import type { Receipt, User } from "@/types";
 import Link from "next/link";
 import ArchiveForm from "@/components/archive/ArchiveForm";
 
+/** Flag any active receipts older than 61 days as overdue (US only). */
+async function autoFlagOverdue(supabase: Awaited<ReturnType<typeof createClient>>, userId: string, country: string) {
+  if (country !== "US") return;
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 61);
+  await supabase
+    .from("receipts")
+    .update({ status: "overdue_flagged", archived_at: new Date().toISOString() })
+    .eq("user_id", userId)
+    .eq("status", "active")
+    .lt("transaction_date", cutoff.toISOString().split("T")[0]);
+}
+
 export default async function ArchivePage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -11,6 +24,11 @@ export default async function ArchivePage() {
   const { data: profile } = await supabase
     .from("users").select("*").eq("id", user.id).single();
 
+  const country = (profile as User)?.country ?? "US";
+
+  // Auto-flag overdue receipts before fetching archive list
+  await autoFlagOverdue(supabase, user.id, country);
+
   const { data: receipts } = await supabase
     .from("receipts")
     .select("*, missing_receipt_form:missing_receipt_forms(*)")
@@ -18,7 +36,6 @@ export default async function ArchivePage() {
     .in("status", ["overdue_flagged", "archived"])
     .order("transaction_date", { ascending: false });
 
-  const country       = (profile as User)?.country ?? "US";
   const userName      = (profile as any)?.name      ?? "Employee";
   const userOffice    = (profile as any)?.city       ?? "";
   const typedList     = (receipts as Receipt[])     ?? [];
