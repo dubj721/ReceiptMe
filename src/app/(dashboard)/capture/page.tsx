@@ -110,6 +110,7 @@ export default function CapturePage() {
   const [saving,      setSaving]      = useState(false);
   const [error,       setError]       = useState<string | null>(null);
   const [receiptId,   setReceiptId]   = useState<string | null>(null);
+  const [isOverdue,   setIsOverdue]   = useState(false);
 
   const handleFile = useCallback((file: File) => {
     setImageFile(file);
@@ -188,8 +189,9 @@ export default function CapturePage() {
         body: JSON.stringify({ ...form, amount: parseFloat(form.amount), source, image_url }),
       });
       if (!resp.ok) throw new Error(await resp.text());
-      const { id } = await resp.json();
+      const { id, overdue } = await resp.json();
       setReceiptId(id);
+      setIsOverdue(!!overdue);
       setStep(source === "bank_transaction" ? "missing-form" : "success");
     } catch (e: any) {
       setError(e.message ?? "Something went wrong.");
@@ -333,6 +335,22 @@ export default function CapturePage() {
           </p>
         </div>
       )}
+      {/* Live overdue warning */}
+      {(() => {
+        if (!form.transaction_date) return null;
+        const days = Math.floor((Date.now() - new Date(form.transaction_date).getTime()) / 86_400_000);
+        if (days < 61) return null;
+        return (
+          <div className="px-4 py-3 rounded-2xl" style={{ background: "#fef2f2", border: "1px solid rgba(239,68,68,0.35)" }}>
+            <p className="text-xs font-bold text-red-600 mb-0.5">
+              ⚠️ This receipt is {days} days old — it will be flagged as overdue
+            </p>
+            <p className="text-[11px] text-red-500">
+              Receipts older than 60 days are sent directly to the Archive and cannot be added to a packet.
+            </p>
+          </div>
+        );
+      })()}
       {error && <p className="text-xs text-red-500 font-medium">{error}</p>}
       <button onClick={saveReceipt}
         disabled={saving || !form.vendor_name || !form.amount}
@@ -398,29 +416,70 @@ export default function CapturePage() {
   );
 
   if (step === "success") return (
-    <div className="flex flex-col items-center justify-center py-24 px-4 text-center gap-4">
-      <div className="w-16 h-16 rounded-2xl bg-green-50 border border-green-200 flex items-center justify-center">
-        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-          <path d="M8 14l4 4 8-8" stroke="#16a34a" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
+    <div className="flex flex-col items-center justify-center py-16 px-4 text-center gap-4 md:max-w-lg md:mx-auto">
+      {/* Icon */}
+      <div className={`w-16 h-16 rounded-2xl flex items-center justify-center
+        ${isOverdue ? "bg-amber-50 border border-amber-200" : "bg-green-50 border border-green-200"}`}>
+        {isOverdue ? (
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+            <path d="M14 9v6M14 18v.5" stroke="#d97706" strokeWidth="2.2" strokeLinecap="round"/>
+            <path d="M12.3 4.3a2 2 0 013.4 0l9.6 16.4A2 2 0 0123.6 24H4.4a2 2 0 01-1.7-3.3L12.3 4.3z"
+              stroke="#d97706" strokeWidth="1.8" strokeLinejoin="round"/>
+          </svg>
+        ) : (
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+            <path d="M8 14l4 4 8-8" stroke="#16a34a" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        )}
       </div>
+
+      {/* Message */}
       <div>
-        <p className="text-lg font-bold text-gray-900">Receipt saved!</p>
+        <p className="text-lg font-bold text-gray-900">
+          {isOverdue ? "Receipt saved — action needed" : "Receipt saved!"}
+        </p>
         <p className="text-sm text-gray-400 mt-1">
-          {source === "bank_transaction"
-            ? "Your receipt and form have been recorded."
-            : "Your receipt has been added to your account."}
+          {isOverdue
+            ? "Your receipt has been added to your account."
+            : source === "bank_transaction"
+              ? "Your receipt and form have been recorded."
+              : "Your receipt has been added to your account."}
         </p>
       </div>
+
+      {/* Overdue notice */}
+      {isOverdue && (
+        <div
+          className="w-full rounded-2xl px-4 py-3 text-left"
+          style={{ background: "#fffbeb", border: "1px solid rgba(245,158,11,0.35)" }}>
+          <p className="text-xs font-bold text-amber-700 mb-1">
+            ⚠️ This receipt is overdue and has been sent to your Archive
+          </p>
+          <p className="text-[11px] text-amber-600">
+            Because the transaction date is more than 60 days ago, it can't be added to a regular packet.
+            Visit the Overdue Archive tab to fill in the expense details and export your form.
+          </p>
+        </div>
+      )}
+
+      {/* Actions */}
       <div className="flex gap-3 w-full max-w-xs">
         <button onClick={() => {
           setStep("source"); setForm(EMPTY); setPreview(null);
           setImageFile(null); setMForm({ business_purpose: "", reason: "", signature: "" });
-          setReceiptId(null); setError(null);
+          setReceiptId(null); setError(null); setIsOverdue(false);
         }} className="flex-1 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
           Add Another
         </button>
-        <button onClick={() => router.push("/packets")} className="flex-1 btn-primary">View Packets</button>
+        <button
+          onClick={() => router.push(isOverdue ? "/archive" : "/packets")}
+          className="flex-1 py-3 rounded-xl text-sm font-bold transition-all"
+          style={isOverdue
+            ? { background: "#dc2626", color: "#ffffff" }
+            : { background: "#00283C", color: "#ffffff" }
+          }>
+          {isOverdue ? "Go to Archive" : "View Packets"}
+        </button>
       </div>
     </div>
   );
