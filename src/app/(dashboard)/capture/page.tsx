@@ -191,7 +191,9 @@ export default function CapturePage() {
       if (!resp.ok) throw new Error(await resp.text());
       const { id, overdue } = await resp.json();
       setReceiptId(id);
-      setIsOverdue(!!overdue);
+      // Detect overdue client-side too — API may return false if country isn't set
+      const daysOld = Math.floor((Date.now() - new Date(form.transaction_date).getTime()) / 86_400_000);
+      setIsOverdue(!!overdue || daysOld >= 61);
       setStep(source === "bank_transaction" ? "missing-form" : "success");
     } catch (e: any) {
       setError(e.message ?? "Something went wrong.");
