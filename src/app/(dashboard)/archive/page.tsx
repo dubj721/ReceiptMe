@@ -74,11 +74,11 @@ export default async function ArchivePage() {
           {/* Summary banner */}
           <div
             className="mb-5 px-4 py-3 rounded-2xl"
-            style={{ background: "#fef2f2", border: "1px solid rgba(239,68,68,0.25)" }}>
-            <p className="text-xs font-bold text-red-700 mb-0.5">
+            style={{ background: "#ffffff", border: "1px solid #e2e8f0", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
+            <p className="text-xs font-bold mb-0.5" style={{ color: "#00283C" }}>
               {typedList.length} overdue receipt{typedList.length > 1 ? "s" : ""} — fill in context below, then export
             </p>
-            <p className="text-[11px] text-red-500">
+            <p className="text-[11px] text-gray-400">
               Select an expense category for each receipt. Other fields are optional but help with approval.
             </p>
           </div>
