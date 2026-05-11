@@ -904,9 +904,14 @@ export default function ArchiveForm({
   const [receipts, setReceipts] = useState<Receipt[]>(initialReceipts);
 
   const [formData, setFormData] = useState<FormData>(() => {
-    // Build initial rows from receipts
+    // Prefer DB-persisted expense_form_data; fall back to defaults
     const initialRows: Record<string, RowData> = {};
-    initialReceipts.forEach(r => { initialRows[r.id] = defaultRow(r); });
+    initialReceipts.forEach(r => {
+      const db = r.expense_form_data as Partial<RowData> | null | undefined;
+      initialRows[r.id] = db?.expenseType
+        ? { ...defaultRow(r), ...db }
+        : defaultRow(r);
+    });
 
     return {
       header: {
@@ -923,30 +928,42 @@ export default function ArchiveForm({
   const [collapsedCards, setCollapsedCards] = useState<Set<string>>(new Set());
   const [showSignModal,  setShowSignModal]  = useState(false);
 
-  // Load persisted data from localStorage on mount
+  // Merge localStorage on mount — DB data takes priority, localStorage fills gaps
   useEffect(() => {
     try {
       const stored = localStorage.getItem(KEY);
-      if (stored) {
-        const parsed: FormData = JSON.parse(stored);
-        setFormData(prev => {
-          const merged: Record<string, RowData> = {};
-          receipts.forEach(r => {
-            merged[r.id] = parsed.rows?.[r.id] ?? defaultRow(r);
-          });
-          return {
-            header: parsed.header ?? prev.header,
-            rows: merged,
-          };
+      const parsed: FormData | null = stored ? JSON.parse(stored) : null;
+
+      setFormData(prev => {
+        const merged: Record<string, RowData> = {};
+        receipts.forEach(r => {
+          const dbRow  = r.expense_form_data as Partial<RowData> | null | undefined;
+          const lsRow  = parsed?.rows?.[r.id];
+          // DB wins if it has an expense type; otherwise fall back to localStorage
+          if (dbRow?.expenseType) {
+            merged[r.id] = { ...defaultRow(r), ...dbRow };
+          } else if (lsRow?.expenseType) {
+            merged[r.id] = lsRow;
+          } else {
+            merged[r.id] = prev.rows[r.id] ?? defaultRow(r);
+          }
         });
-        // Auto-collapse cards that already have an expense type saved
-        const alreadySaved = new Set(
-          receipts
-            .filter(r => !!parsed.rows?.[r.id]?.expenseType)
-            .map(r => r.id)
-        );
-        setCollapsedCards(alreadySaved);
-      }
+        return {
+          header: parsed?.header ?? prev.header,
+          rows: merged,
+        };
+      });
+
+      // Auto-collapse cards that already have an expense type (from either source)
+      const alreadySaved = new Set(
+        receipts
+          .filter(r => {
+            const db = r.expense_form_data as Partial<RowData> | null | undefined;
+            return !!(db?.expenseType || parsed?.rows?.[r.id]?.expenseType);
+          })
+          .map(r => r.id)
+      );
+      setCollapsedCards(alreadySaved);
     } catch { /* ignore */ }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -982,7 +999,19 @@ export default function ArchiveForm({
 
   const saveCard = useCallback((id: string) => {
     setFormData(prev => {
+      // Write to localStorage (fast cache)
       try { localStorage.setItem(KEY, JSON.stringify(prev)); } catch { /* ignore */ }
+
+      // Sync to Supabase (source of truth — fire-and-forget)
+      const rowData = prev.rows[id];
+      if (rowData) {
+        fetch(`/api/receipts/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ expense_form_data: rowData }),
+        }).catch(() => { /* silent fail — localStorage preserves work */ });
+      }
+
       return prev;
     });
   }, [KEY]);

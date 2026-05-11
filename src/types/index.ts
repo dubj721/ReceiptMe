@@ -35,6 +35,7 @@ export interface Receipt {
   status: ReceiptStatus;
   archived_at: string | null;
   notes: string | null;
+  expense_form_data?: Record<string, unknown> | null;  // overdue form fields, synced cross-device
   created_at: string;
   missing_receipt_form?: MissingReceiptForm | null;
   days_old?: number;             // computed client-side
