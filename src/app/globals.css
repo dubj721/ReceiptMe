@@ -168,4 +168,12 @@ html, body {
     border: 1px solid rgba(245,158,11,0.25);
     white-space: nowrap;
   }
+
+  /* Admin table rows — CSS hover so no JS event handlers needed in Server Components */
+  .admin-row {
+    transition: background 0.1s;
+  }
+  .admin-row:hover {
+    background: rgba(0, 214, 242, 0.05);
+  }
 }

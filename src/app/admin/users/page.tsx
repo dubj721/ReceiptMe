@@ -55,9 +55,8 @@ export default async function AdminUsersPage() {
               {enriched.map((u: any) => (
                 <tr
                   key={u.id}
-                  style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}
-                  onMouseEnter={e => (e.currentTarget.style.background = "rgba(0,214,242,0.05)")}
-                  onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                  className="admin-row"
+                  style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
 
                   {/* User */}
                   <td className="px-4 py-3">
