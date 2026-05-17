@@ -22,6 +22,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
+  // Check if receipt date is already overdue (61+ days old) for US users
+  const { data: profile } = await supabase
+    .from("users").select("country").eq("id", user.id).single();
+  const isUS = (profile as any)?.country === "US";
+
+  const txDate = new Date(transaction_date);
+  const today  = new Date();
+  today.setHours(0, 0, 0, 0);
+  const daysOld   = Math.floor((today.getTime() - txDate.getTime()) / 86_400_000);
+  const isOverdue = isUS && daysOld >= 61;
+
   const { data, error } = await supabase
     .from("receipts")
     .insert({
@@ -34,7 +45,8 @@ export async function POST(req: NextRequest) {
       source,
       image_url,
       notes,
-      status: "active",
+      status:      isOverdue ? "overdue_flagged" : "active",
+      archived_at: isOverdue ? new Date().toISOString() : null,
     })
     .select("id")
     .single();
@@ -51,34 +63,36 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Auto-assign receipt to the current month's packet (create if needed)
-  const now = new Date();
-  const monthLabel = now.toLocaleDateString("en-US", { month: "long", year: "numeric" });
-  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
-  const lastDay  = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split("T")[0];
+  // Only add to a packet if not overdue — overdue goes straight to archive
+  if (!isOverdue) {
+    const now        = new Date();
+    const monthLabel = now.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    const firstDay   = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
+    const lastDay    = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split("T")[0];
 
-  let { data: packet } = await supabase
-    .from("packets")
-    .select("id")
-    .eq("user_id", user.id)
-    .eq("label", monthLabel)
-    .maybeSingle();
-
-  if (!packet) {
-    const { data: newPacket } = await supabase
+    let { data: packet } = await supabase
       .from("packets")
-      .insert({ user_id: user.id, label: monthLabel, date_from: firstDay, date_to: lastDay })
       .select("id")
-      .single();
-    packet = newPacket;
+      .eq("user_id", user.id)
+      .eq("label", monthLabel)
+      .maybeSingle();
+
+    if (!packet) {
+      const { data: newPacket } = await supabase
+        .from("packets")
+        .insert({ user_id: user.id, label: monthLabel, date_from: firstDay, date_to: lastDay })
+        .select("id")
+        .single();
+      packet = newPacket;
+    }
+
+    if (packet) {
+      await supabase.from("packet_receipts").insert({
+        packet_id: packet.id,
+        receipt_id: data.id,
+      });
+    }
   }
 
-  if (packet) {
-    await supabase.from("packet_receipts").insert({
-      packet_id: packet.id,
-      receipt_id: data.id,
-    });
-  }
-
-  return NextResponse.json({ id: data.id }, { status: 201 });
+  return NextResponse.json({ id: data.id, overdue: isOverdue }, { status: 201 });
 }

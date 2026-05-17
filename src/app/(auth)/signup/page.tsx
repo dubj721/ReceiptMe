@@ -37,17 +37,31 @@ export default function SignupPage() {
       return;
     }
 
-    // Insert profile row into public.users
+    // Insert profile row into public.users.
+    // The DB trigger (on auth.users INSERT) is the primary safety net —
+    // this client-side insert is a belt-and-suspenders fallback.
+    // upsert avoids a duplicate-key error if the trigger already ran.
     if (data.user) {
-      await supabase.from("users").insert({
-        id: data.user.id,
-        email,
-        name,
-        country,
-      });
+      const { error: profileError } = await supabase.from("users").upsert(
+        { id: data.user.id, email, name, country },
+        { onConflict: "id", ignoreDuplicates: true }
+      );
+      if (profileError) {
+        // Non-fatal — the trigger will have created the row. Log and continue.
+        console.warn("Profile upsert warning:", profileError.message);
+      }
     }
 
-    router.push("/packets");
+    // If email confirmation is required, data.session will be null.
+    // Show a "check your email" message instead of redirecting into the app.
+    if (!data.session) {
+      setError(null);
+      setLoading(false);
+      router.push("/login?confirm=1");
+      return;
+    }
+
+    router.push("/home");
     router.refresh();
   }
 

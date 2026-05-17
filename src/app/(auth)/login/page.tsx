@@ -2,17 +2,21 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
-  const router = useRouter();
-  const supabase = createClient();
+  const router       = useRouter();
+  const searchParams = useSearchParams();
+  const supabase     = createClient();
 
   const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
   const [error, setError]       = useState<string | null>(null);
   const [loading, setLoading]   = useState(false);
+
+  // Shown when signup redirects here after email-confirmation flow
+  const needsConfirm = searchParams.get("confirm") === "1";
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -44,6 +48,15 @@ export default function LoginPage() {
             <h1 className="text-white text-3xl font-bold">Receipt Manager</h1>
             <p className="text-white/40 text-sm mt-2">Sign in to your account</p>
           </div>
+
+          {/* Email confirmation notice */}
+          {needsConfirm && (
+            <div className="mb-4 px-4 py-3 rounded-2xl text-sm text-center"
+              style={{ background: "rgba(0,214,242,0.12)", border: "1px solid rgba(0,214,242,0.3)", color: "#00D6F2" }}>
+              <p className="font-semibold mb-0.5">Check your email</p>
+              <p className="text-xs opacity-80">We sent a confirmation link. Click it, then sign in here.</p>
+            </div>
+          )}
 
           {/* Form card */}
           <div className="bg-white rounded-3xl p-6 shadow-sm">
