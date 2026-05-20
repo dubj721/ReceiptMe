@@ -27,7 +27,7 @@ export default async function AdminUsersPage() {
       <div>
         <h1 className="text-xl font-bold text-white">Users</h1>
         <p className="text-sm mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>
-          {enriched.length} total beta users
+          {enriched.filter((u: any) => !u.deleted_at).length} active · {enriched.filter((u: any) => u.deleted_at).length} deleted
         </p>
       </div>
 
@@ -52,24 +52,31 @@ export default async function AdminUsersPage() {
               </tr>
             </thead>
             <tbody>
-              {enriched.map((u: any) => (
+              {enriched.map((u: any) => {
+                const isDeleted = !!u.deleted_at;
+                return (
                 <tr
                   key={u.id}
                   className="admin-row"
-                  style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                  style={{
+                    borderBottom: "1px solid rgba(255,255,255,0.05)",
+                    opacity: isDeleted ? 0.45 : 1,
+                  }}>
 
                   {/* User */}
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
                       <div
                         className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-                        style={{ background: "rgba(0,214,242,0.15)", border: "1px solid rgba(0,214,242,0.25)" }}>
-                        <span className="text-xs font-bold" style={{ color: "#00D6F2" }}>
+                        style={isDeleted
+                          ? { background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)" }
+                          : { background: "rgba(0,214,242,0.15)", border: "1px solid rgba(0,214,242,0.25)" }}>
+                        <span className="text-xs font-bold" style={{ color: isDeleted ? "#f87171" : "#00D6F2" }}>
                           {u.name?.charAt(0).toUpperCase()}
                         </span>
                       </div>
                       <div>
-                        <p className="font-semibold text-white text-xs">{u.name}</p>
+                        <p className="font-semibold text-white text-xs" style={{ textDecoration: isDeleted ? "line-through" : "none" }}>{u.name}</p>
                         <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.4)" }}>{u.email}</p>
                       </div>
                     </div>
@@ -90,23 +97,30 @@ export default async function AdminUsersPage() {
 
                   {/* Last Active */}
                   <td className="px-4 py-3 text-center">
-                    <span className="text-xs font-medium"
-                      style={{ color: u.daysSince > 7 ? "#fbbf24" : "#4ade80" }}>
-                      {u.daysSince === 0 ? "Today" : u.daysSince === 1 ? "Yesterday" : `${u.daysSince}d ago`}
-                    </span>
+                    {isDeleted
+                      ? <span className="text-xs" style={{ color: "rgba(255,255,255,0.25)" }}>—</span>
+                      : <span className="text-xs font-medium"
+                          style={{ color: u.daysSince > 7 ? "#fbbf24" : "#4ade80" }}>
+                          {u.daysSince === 0 ? "Today" : u.daysSince === 1 ? "Yesterday" : `${u.daysSince}d ago`}
+                        </span>}
                   </td>
 
                   {/* Role */}
                   <td className="px-4 py-3 text-center">
-                    {u.is_admin
+                    {isDeleted
                       ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-                          style={{ background: "rgba(0,214,242,0.15)", color: "#00D6F2", border: "1px solid rgba(0,214,242,0.3)" }}>
-                          Admin
+                          style={{ background: "rgba(239,68,68,0.12)", color: "#f87171", border: "1px solid rgba(239,68,68,0.25)" }}>
+                          Deleted
                         </span>
-                      : <span className="text-[10px] font-medium px-2 py-0.5 rounded-full"
-                          style={{ background: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.4)" }}>
-                          User
-                        </span>
+                      : u.is_admin
+                        ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                            style={{ background: "rgba(0,214,242,0.15)", color: "#00D6F2", border: "1px solid rgba(0,214,242,0.3)" }}>
+                            Admin
+                          </span>
+                        : <span className="text-[10px] font-medium px-2 py-0.5 rounded-full"
+                            style={{ background: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.4)" }}>
+                            User
+                          </span>
                     }
                   </td>
 
@@ -115,12 +129,13 @@ export default async function AdminUsersPage() {
                     <Link
                       href={"/admin/users/" + u.id}
                       className="text-[11px] font-semibold hover:opacity-80 transition-opacity"
-                      style={{ color: "#00D6F2" }}>
+                      style={{ color: isDeleted ? "rgba(255,255,255,0.3)" : "#00D6F2" }}>
                       Details →
                     </Link>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

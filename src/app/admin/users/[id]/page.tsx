@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import AdminRoleToggle from "@/components/admin/AdminRoleToggle";
+import DeleteUserButton from "@/components/admin/DeleteUserButton";
 
 const CARD = {
   background: "linear-gradient(135deg, rgb(10,44,68) 0%, rgb(16,62,92) 100%)",
@@ -55,8 +56,23 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
         ← Users
       </Link>
 
+      {/* Deleted banner */}
+      {profile.deleted_at && (
+        <div
+          className="flex items-center gap-3 px-4 py-3 rounded-xl"
+          style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}>
+          <span className="text-sm">🗑️</span>
+          <div>
+            <p className="text-sm font-semibold" style={{ color: "#f87171" }}>Account deleted</p>
+            <p className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>
+              Deleted {new Date(profile.deleted_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} · Login credentials removed · Analytics preserved
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Profile header */}
-      <div className="p-5 flex items-center gap-4" style={CARD}>
+      <div className="p-5 flex items-center gap-4" style={{ ...CARD, opacity: profile.deleted_at ? 0.6 : 1 }}>
         <div
           className="w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0"
           style={{ background: "rgba(0,214,242,0.15)", border: "1px solid rgba(0,214,242,0.25)" }}>
@@ -71,13 +87,19 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
             {profile.country} · Joined {new Date(profile.created_at).toLocaleDateString("en-US", { month: "long", year: "numeric" })}
           </p>
         </div>
-        {profile.is_admin && (
+        {profile.deleted_at ? (
+          <span
+            className="text-[10px] font-bold px-2 py-1 rounded-full flex-shrink-0"
+            style={{ background: "rgba(239,68,68,0.12)", color: "#f87171", border: "1px solid rgba(239,68,68,0.25)" }}>
+            Deleted
+          </span>
+        ) : profile.is_admin ? (
           <span
             className="text-[10px] font-bold px-2 py-1 rounded-full flex-shrink-0"
             style={{ background: "rgba(0,214,242,0.15)", color: "#00D6F2", border: "1px solid rgba(0,214,242,0.3)" }}>
             Admin
           </span>
-        )}
+        ) : null}
       </div>
 
       {/* Stat grid */}
@@ -155,22 +177,39 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
         </div>
       </div>
 
-      {/* Admin access management */}
-      <div className="p-5 space-y-3" style={CARD}>
-        <div>
-          <p className="text-sm font-bold text-white">Admin Access</p>
-          <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>
-            {profile.is_admin
-              ? "This user currently has admin access."
-              : "This user does not have admin access."}
-          </p>
+      {/* Admin access management — hide for deleted users */}
+      {!profile.deleted_at && (
+        <div className="p-5 space-y-3" style={CARD}>
+          <div>
+            <p className="text-sm font-bold text-white">Admin Access</p>
+            <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>
+              {profile.is_admin
+                ? "This user currently has admin access."
+                : "This user does not have admin access."}
+            </p>
+          </div>
+          <AdminRoleToggle
+            userId={profile.id}
+            isAdmin={!!profile.is_admin}
+            isSelf={currentUser?.id === profile.id}
+          />
         </div>
-        <AdminRoleToggle
-          userId={profile.id}
-          isAdmin={!!profile.is_admin}
-          isSelf={currentUser?.id === profile.id}
-        />
-      </div>
+      )}
+
+      {/* Danger zone — only show for non-deleted, non-self users */}
+      {!profile.deleted_at && currentUser?.id !== profile.id && (
+        <div
+          className="p-5 space-y-3"
+          style={{ ...CARD, border: "1px solid rgba(239,68,68,0.2)" }}>
+          <div>
+            <p className="text-sm font-bold" style={{ color: "#f87171" }}>Danger Zone</p>
+            <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>
+              Permanently removes login access. All receipts, events, and feedback are retained for analytics.
+            </p>
+          </div>
+          <DeleteUserButton userId={profile.id} userName={profile.name ?? profile.email} />
+        </div>
+      )}
     </div>
   );
 }
