@@ -28,7 +28,14 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
 
   const { pathname } = request.nextUrl;
-  const isAuthRoute = pathname.startsWith("/login") || pathname.startsWith("/signup");
+  const isAuthRoute   = pathname.startsWith("/login") || pathname.startsWith("/signup");
+  // Routes that beta-gated users are allowed to reach
+  const isBetaExempt  =
+    isAuthRoute ||
+    pathname.startsWith("/pending") ||
+    pathname.startsWith("/denied")  ||
+    pathname.startsWith("/api/")    ||
+    pathname.startsWith("/admin");
 
   // Helper: build a redirect response that carries any refreshed session cookies
   // from supabaseResponse (set by getUser() above). Without this, a token refresh
@@ -49,6 +56,20 @@ export async function middleware(request: NextRequest) {
   // Redirect authenticated users away from auth pages
   if (user && isAuthRoute) {
     return redirectWithCookies("/home");
+  }
+
+  // Beta-access gate: check the user's beta_status on protected routes
+  if (user && !isBetaExempt) {
+    const { data: profile } = await supabase
+      .from("users")
+      .select("beta_status")
+      .eq("id", user.id)
+      .single();
+
+    const status = profile?.beta_status ?? "approved";
+
+    if (status === "pending") return redirectWithCookies("/pending");
+    if (status === "denied")  return redirectWithCookies("/denied");
   }
 
   return supabaseResponse;

@@ -50,7 +50,13 @@ export async function PATCH(
   }
 
   const body = await req.json();
-  const allowed = ["is_admin"];
+
+  // Validate beta_status value if provided
+  if ("beta_status" in body && !["pending", "approved", "denied"].includes(body.beta_status)) {
+    return NextResponse.json({ error: "Invalid beta_status value." }, { status: 400 });
+  }
+
+  const allowed = ["is_admin", "beta_status"];
   const updates: Record<string, unknown> = {};
   for (const key of allowed) { if (key in body) updates[key] = body[key]; }
 

@@ -12,6 +12,8 @@ export type NotificationType = "day_55_warning" | "day_60_overdue" | "day_61_arc
 
 export type NotificationChannel = "in_app" | "email";
 
+export type BetaStatus = "pending" | "approved" | "denied";
+
 export interface User {
   id: string;
   email: string;
@@ -19,6 +21,8 @@ export interface User {
   country: Country;
   city?: string | null;
   concur_connected: boolean;
+  is_admin?: boolean;
+  beta_status?: BetaStatus;
   created_at: string;
 }
 

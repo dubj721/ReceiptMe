@@ -4,9 +4,10 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
 const NAV = [
-  { href: "/admin",          label: "Overview" },
-  { href: "/admin/users",    label: "Users"    },
-  { href: "/admin/feedback", label: "Feedback" },
+  { href: "/admin",          label: "Overview"    },
+  { href: "/admin/users",    label: "Users"       },
+  { href: "/admin/beta",     label: "Beta Access" },
+  { href: "/admin/feedback", label: "Feedback"    },
 ];
 
 const CYAN     = "#00D6F2";

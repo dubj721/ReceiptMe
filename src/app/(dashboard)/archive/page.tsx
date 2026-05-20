@@ -41,7 +41,7 @@ export default async function ArchivePage() {
   const typedList     = (receipts as Receipt[])     ?? [];
 
   return (
-    <div className="px-4 pt-2 md:pt-0 pb-8 md:max-w-2xl md:mx-auto">
+    <div className="px-4 pt-2 md:pt-0 pb-8">
 
       {/* CA exemption notice */}
       {country === "CA" && (
