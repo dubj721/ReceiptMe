@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { ALL_CITIES } from "@/lib/expense-schedule";
+import ClearableInput from "@/components/ui/ClearableInput";
 
 export default function SettingsPage() {
   const router   = useRouter();
@@ -139,11 +140,12 @@ export default function SettingsPage() {
           <label className="block text-[10px] font-semibold uppercase tracking-widest mb-1.5 text-gray-400">
             Display Name
           </label>
-          <input
+          <ClearableInput
             type="text"
             value={name}
             onChange={e => setName(e.target.value)}
-            className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
+            onClear={() => setName("")}
+            inputClassName="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
             style={{
               background: "#f8fafc",
               border: "1px solid #e2e8f0",
@@ -205,12 +207,13 @@ export default function SettingsPage() {
               </button>
             </div>
           ) : (
-            <input
+            <ClearableInput
               type="text"
               value={search}
               onChange={e => { setSearch(e.target.value); setShowList(true); }}
               onFocus={() => setShowList(true)}
-              className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
+              onClear={() => { setSearch(""); setShowList(true); }}
+              inputClassName="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
               style={{
                 background: "#f8fafc",
                 border: "1px solid #e2e8f0",

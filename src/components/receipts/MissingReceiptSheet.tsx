@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import type { Receipt } from "@/types";
+import ClearableInput from "@/components/ui/ClearableInput";
 
 interface Props {
   receipt: Receipt;
@@ -193,11 +194,12 @@ export default function MissingReceiptSheet({ receipt, open, onClose, onSaved }:
               </div>
             ) : (
               <>
-                <input
-                  className={`${inp} italic`}
+                <ClearableInput
+                  inputClassName={`${inp} italic`}
                   placeholder="Type your full name"
                   value={form.signature}
                   onChange={e => setForm(f => ({ ...f, signature: e.target.value }))}
+                  onClear={() => setForm(f => ({ ...f, signature: "" }))}
                 />
                 <p className="text-[10px] text-gray-400 mt-1">
                   By typing your name you agree this serves as your electronic signature.

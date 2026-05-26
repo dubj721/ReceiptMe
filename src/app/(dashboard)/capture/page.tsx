@@ -4,6 +4,7 @@ import { useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { ReceiptCategory } from "@/types";
+import ClearableInput from "@/components/ui/ClearableInput";
 
 type Source = "photo" | "bank_transaction";
 type Step   = "source" | "upload" | "processing" | "form" | "missing-form" | "success";
@@ -277,22 +278,13 @@ export default function CapturePage() {
       )}
       <div>
         <label className="label">Vendor / Merchant</label>
-        <div className="relative">
-          <input className={inp} placeholder="e.g. Delta, Marriott…" value={form.vendor_name}
-            onChange={e => setForm(f => ({ ...f, vendor_name: e.target.value }))}
-            style={{ paddingRight: form.vendor_name ? "2.25rem" : undefined }} />
-          {form.vendor_name && (
-            <button
-              type="button"
-              onClick={() => setForm(f => ({ ...f, vendor_name: "" }))}
-              className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full flex items-center justify-center transition-colors"
-              style={{ background: "#e2e8f0" }}>
-              <svg width="8" height="8" viewBox="0 0 10 10" fill="none">
-                <path d="M2 2l6 6M8 2L2 8" stroke="#6b7280" strokeWidth="1.8" strokeLinecap="round"/>
-              </svg>
-            </button>
-          )}
-        </div>
+        <ClearableInput
+          inputClassName={inp}
+          placeholder="e.g. Delta, Marriott…"
+          value={form.vendor_name}
+          onChange={e => setForm(f => ({ ...f, vendor_name: e.target.value }))}
+          onClear={() => setForm(f => ({ ...f, vendor_name: "" }))}
+        />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>

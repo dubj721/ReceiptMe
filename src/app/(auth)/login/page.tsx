@@ -4,6 +4,7 @@ import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import ClearableInput from "@/components/ui/ClearableInput";
 
 // Separated so useSearchParams() is inside a Suspense boundary (Next.js 16 requirement)
 function LoginForm() {
@@ -61,15 +62,16 @@ function LoginForm() {
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
             <label className="label" htmlFor="email">Email</label>
-            <input
+            <ClearableInput
               id="email"
               type="email"
               autoComplete="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              onClear={() => setEmail("")}
               placeholder="you@insightglobal.com"
-              className="input"
+              inputClassName="input"
             />
           </div>
 

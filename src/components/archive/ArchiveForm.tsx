@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import type { Receipt } from "@/types";
 import { daysOld } from "@/types";
 import { EXPENSE_CATEGORIES } from "@/lib/expense-categories";
+import ClearableInput from "@/components/ui/ClearableInput";
 
 /* ─── Types ──────────────────────────────────────────────── */
 type RowData = {
@@ -116,14 +117,15 @@ function SignatureModal({
         <label className="block text-[11px] font-semibold mb-1.5" style={{ color: "rgba(255,255,255,0.6)" }}>
           Full Name <span style={{ color: "#ef4444" }}>*</span>
         </label>
-        <input
+        <ClearableInput
           autoFocus
           type="text"
           placeholder="Type your full name…"
           value={sig}
           onChange={e => setSig(e.target.value)}
+          onClear={() => setSig("")}
           onKeyDown={e => { if (e.key === "Enter" && sig.trim()) onSign(sig.trim()); }}
-          className="w-full px-3 py-2.5 rounded-xl text-sm outline-none italic font-medium mb-5"
+          inputClassName="w-full px-3 py-2.5 rounded-xl text-sm outline-none italic font-medium mb-5"
           style={{
             background: "rgba(255,255,255,0.08)",
             border: "1px solid rgba(0,214,242,0.4)",
@@ -387,12 +389,13 @@ function ReceiptFormCard({
           {/* Description */}
           <div>
             <label className="block text-[11px] font-semibold text-gray-500 mb-1">Description</label>
-            <input
+            <ClearableInput
               type="text"
               value={row.description}
               onChange={e => onChange("description", e.target.value)}
+              onClear={() => onChange("description", "")}
               placeholder="Vendor / purpose…"
-              className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
+              inputClassName="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
               style={{ background: "#f8fafc", border: "1px solid #e2e8f0", color: "#111827" }}
             />
           </div>
@@ -401,23 +404,25 @@ function ReceiptFormCard({
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="block text-[11px] font-semibold text-gray-500 mb-1">Customer</label>
-              <input
+              <ClearableInput
                 type="text"
                 value={row.customer}
                 onChange={e => onChange("customer", e.target.value)}
+                onClear={() => onChange("customer", "")}
                 placeholder="Client / company…"
-                className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
+                inputClassName="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
                 style={{ background: "#f8fafc", border: "1px solid #e2e8f0", color: "#111827" }}
               />
             </div>
             <div>
               <label className="block text-[11px] font-semibold text-gray-500 mb-1">Contacts</label>
-              <input
+              <ClearableInput
                 type="text"
                 value={row.contacts}
                 onChange={e => onChange("contacts", e.target.value)}
+                onClear={() => onChange("contacts", "")}
                 placeholder="Names attended…"
-                className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
+                inputClassName="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
                 style={{ background: "#f8fafc", border: "1px solid #e2e8f0", color: "#111827" }}
               />
             </div>
@@ -1131,32 +1136,35 @@ export default function ArchiveForm({
         <div className="space-y-3">
           <div>
             <label className="block text-[11px] font-semibold mb-1" style={{ color: "rgba(255,255,255,0.6)" }}>Employee Name</label>
-            <input
+            <ClearableInput
               type="text"
               value={formData.header.name}
               onChange={e => updateHeader("name", e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
+              onClear={() => updateHeader("name", "")}
+              inputClassName="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
               style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "#ffffff" }}
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-[11px] font-semibold mb-1" style={{ color: "rgba(255,255,255,0.6)" }}>Office</label>
-              <input
+              <ClearableInput
                 type="text"
                 value={formData.header.office}
                 onChange={e => updateHeader("office", e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
+                onClear={() => updateHeader("office", "")}
+                inputClassName="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
                 style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "#ffffff" }}
               />
             </div>
             <div>
               <label className="block text-[11px] font-semibold mb-1" style={{ color: "rgba(255,255,255,0.6)" }}>Month</label>
-              <input
+              <ClearableInput
                 type="text"
                 value={formData.header.month}
                 onChange={e => updateHeader("month", e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
+                onClear={() => updateHeader("month", "")}
+                inputClassName="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
                 style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "#ffffff" }}
               />
             </div>

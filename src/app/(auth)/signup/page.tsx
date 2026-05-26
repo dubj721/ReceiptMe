@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { Country } from "@/types";
+import ClearableInput from "@/components/ui/ClearableInput";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -81,29 +82,31 @@ export default function SignupPage() {
             <form onSubmit={handleSignup} className="space-y-4">
               <div>
                 <label className="label" htmlFor="name">Full name</label>
-                <input
+                <ClearableInput
                   id="name"
                   type="text"
                   autoComplete="name"
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
+                  onClear={() => setName("")}
                   placeholder="Jordan Gold"
-                  className="input"
+                  inputClassName="input"
                 />
               </div>
 
               <div>
                 <label className="label" htmlFor="email">Work email</label>
-                <input
+                <ClearableInput
                   id="email"
                   type="email"
                   autoComplete="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  onClear={() => setEmail("")}
                   placeholder="you@insightglobal.com"
-                  className="input"
+                  inputClassName="input"
                 />
               </div>
 

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { daysOld } from "@/types";
 import type { Receipt, ReceiptCategory } from "@/types";
 import { trackEvent } from "@/lib/track";
+import ClearableInput from "@/components/ui/ClearableInput";
 
 const CATEGORIES: ReceiptCategory[] = ["meals", "lodging", "transit", "other"];
 const CURRENCIES = ["USD", "CAD"];
@@ -187,10 +188,11 @@ export default function ReceiptDetailModal({
                 {/* Vendor */}
                 <div className="bg-white rounded-xl overflow-hidden">
                   <Field label="Vendor / Merchant" last>
-                    <input
-                      className="w-full bg-transparent text-sm font-semibold text-gray-800 outline-none"
+                    <ClearableInput
+                      inputClassName="w-full bg-transparent text-sm font-semibold text-gray-800 outline-none"
                       value={draft.vendor_name}
                       onChange={e => setDraft(d => ({ ...d, vendor_name: e.target.value }))}
+                      onClear={() => setDraft(d => ({ ...d, vendor_name: "" }))}
                     />
                   </Field>
                 </div>
