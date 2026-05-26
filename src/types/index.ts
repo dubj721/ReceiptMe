@@ -38,6 +38,7 @@ export interface Receipt {
   image_url: string | null;
   status: ReceiptStatus;
   archived_at: string | null;
+  exported_at: string | null;    // set when receipt is included in an exported packet
   notes: string | null;
   expense_form_data?: Record<string, unknown> | null;  // overdue form fields, synced cross-device
   created_at: string;

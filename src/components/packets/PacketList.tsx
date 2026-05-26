@@ -3,13 +3,21 @@
 import React, { useState, useRef } from "react";
 import Link from "next/link";
 import { daysOld, isPolicyApplicable } from "@/types";
-import type { Receipt, Packet } from "@/types";
+import type { Receipt, Packet, PacketStatus } from "@/types";
 import MissingReceiptSheet from "@/components/receipts/MissingReceiptSheet";
 import ReceiptDetailModal from "@/components/receipts/ReceiptDetailModal";
 import { trackEvent } from "@/lib/track";
 
 /* ─── Days badge ─────────────────────────────────────────── */
-function DaysBadge({ days, country }: { days: number; country: string }) {
+function DaysBadge({ days, country, exported }: { days: number; country: string; exported: boolean }) {
+  if (exported) {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold"
+        style={{ background: "rgba(34,197,94,0.1)", color: "#16a34a", border: "1px solid rgba(34,197,94,0.25)" }}>
+        ✓ sent
+      </span>
+    );
+  }
   if (!isPolicyApplicable(country as "US" | "CA")) return <span className="badge-ok">{days}d</span>;
   if (days >= 61) return <span className="badge-overdue">{days}d — overdue</span>;
   if (days >= 55) return <span className="badge-warn">{days}d — expiring</span>;
@@ -52,7 +60,6 @@ function FormIconButton({ completed, onClick }: {
 }
 
 /* ─── Receipt card ───────────────────────────────────────── */
-
 const CARD_BG    = "#ffffff";
 const WARN_BG    = "#fffbeb";
 const OVERDUE_BG = "#fef2f2";
@@ -63,24 +70,27 @@ const categoryEmoji: Record<string, string> = {
 
 function ReceiptCard({
   receipt, country,
-  onFormIconClick, onViewClick, onDelete, onEditClick,
+  onFormIconClick, onViewClick, onDelete, onEditClick, onMoveClick,
 }: {
   receipt: Receipt; country: string;
   onFormIconClick: (r: Receipt) => void;
   onViewClick:     (r: Receipt) => void;
   onDelete:        (id: string) => void;
   onEditClick?:    (r: Receipt) => void;
+  onMoveClick?:    (r: Receipt) => void;
 }) {
   const days      = daysOld(receipt.transaction_date);
   const isBank    = receipt.source === "bank_transaction";
   const formDone  = !!receipt.missing_receipt_form?.completed_at;
   const needsForm = isBank && !formDone;
   const isOverdue = isPolicyApplicable(country as "US" | "CA") && days >= 61;
+  const isExported = !!receipt.exported_at;
 
   const [offset,     setOffset]     = useState(0);
   const [confirming, setConfirming] = useState(false);
   const startX = useRef<number | null>(null);
-  const REVEAL = 130;
+  // 3 action buttons × 64px each
+  const REVEAL = 192;
 
   const onTouchStart = (e: React.TouchEvent) => { startX.current = e.touches[0].clientX; };
   const onTouchMove  = (e: React.TouchEvent) => {
@@ -93,17 +103,17 @@ function ReceiptCard({
     startX.current = null;
   };
 
-  // Pick the right card background
   const cardBg = isOverdue ? OVERDUE_BG : needsForm ? WARN_BG : CARD_BG;
   const cardBorder = isOverdue
     ? "rgba(239,68,68,0.3)"
     : needsForm
       ? "rgba(245,158,11,0.35)"
-      : "#e2e8f0";
+      : isExported
+        ? "rgba(34,197,94,0.2)"
+        : "#e2e8f0";
 
   return (
     <>
-      {/* Inline delete confirmation */}
       {confirming && (
         <div
           className="mb-2 px-4 py-3 rounded-2xl flex items-center justify-between gap-3"
@@ -125,13 +135,22 @@ function ReceiptCard({
         </div>
       )}
 
-      <div className="group relative overflow-hidden rounded-2xl mb-2">
-        {/* Action buttons behind (swipe reveals) */}
+      <div className="group relative overflow-hidden rounded-2xl mb-2" style={{ opacity: isExported ? 0.65 : 1 }}>
+        {/* Action buttons revealed by swipe */}
         <div className="absolute right-0 top-0 bottom-0 flex items-stretch">
+          <button
+            onClick={() => { setOffset(0); onMoveClick?.(receipt); }}
+            className="w-16 flex flex-col items-center justify-center gap-1 text-white text-[10px] font-bold"
+            style={{ background: "rgba(0,150,180,0.85)" }}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M3 8h10M9 4l4 4-4 4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            Move
+          </button>
           <button
             onClick={() => { setOffset(0); onEditClick?.(receipt); }}
             className="w-16 flex flex-col items-center justify-center gap-1 text-white text-[10px] font-bold"
-            style={{ background: "rgba(0,150,200,0.85)", borderRadius: "0 12px 12px 0" }}>
+            style={{ background: "rgba(0,150,200,0.85)" }}>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
               <path d="M2 14l1.5-5.5L11 1l3 3-7.5 7.5L2 14z" stroke="white" strokeWidth="1.4" strokeLinejoin="round"/>
             </svg>
@@ -164,14 +183,12 @@ function ReceiptCard({
           onTouchEnd={onTouchEnd}
           onClick={() => { if (offset === 0) onViewClick(receipt); }}
         >
-          {/* Emoji */}
           <div
             className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 text-lg"
             style={{ background: "#f1f5f9" }}>
             {categoryEmoji[receipt.category] ?? "📄"}
           </div>
 
-          {/* Info */}
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold truncate" style={{ color: "#00283C" }}>{receipt.vendor_name}</p>
             <p className="text-[11px] mt-0.5 text-gray-400">
@@ -180,7 +197,6 @@ function ReceiptCard({
             </p>
           </div>
 
-          {/* Form icon — left of amount so it never displaces the dollar/days */}
           {isBank && (
             <FormIconButton
               completed={formDone}
@@ -188,15 +204,25 @@ function ReceiptCard({
             />
           )}
 
-          {/* Amount + badge */}
           <div className="flex flex-col items-end gap-1 flex-shrink-0">
             <span className="text-sm font-semibold" style={{ color: "#00283C" }}>
               ${Number(receipt.amount).toFixed(2)}
             </span>
-            <DaysBadge days={days} country={country} />
+            <DaysBadge days={days} country={country} exported={isExported} />
           </div>
 
           {/* Desktop hover actions */}
+          <button
+            onClick={(e) => { e.stopPropagation(); onMoveClick?.(receipt); }}
+            title="Move to packet"
+            className="hidden md:flex flex-shrink-0 w-7 h-7 rounded-lg items-center justify-center transition-all opacity-0 group-hover:opacity-100"
+            style={{ color: "#9ca3af" }}
+            onMouseEnter={e => (e.currentTarget.style.color = "#00D6F2")}
+            onMouseLeave={e => (e.currentTarget.style.color = "#9ca3af")}>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
           <button
             onClick={(e) => { e.stopPropagation(); onEditClick?.(receipt); }}
             title="Edit receipt"
@@ -219,6 +245,91 @@ function ReceiptCard({
               <path d="M3 4h10M5 4V3h6v1M6 7v4M10 7v4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
               <rect x="3.5" y="4" width="9" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.4"/>
             </svg>
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* ─── Move-to-packet sheet ───────────────────────────────── */
+function MoveSheet({
+  receipt,
+  fromPacketId,
+  allPackets,
+  onMove,
+  onClose,
+}: {
+  receipt: Receipt;
+  fromPacketId: string;
+  allPackets: (Packet & { receipts: Receipt[] })[];
+  onMove: (receiptId: string, fromPacketId: string, toPacketId: string) => void;
+  onClose: () => void;
+}) {
+  const others = allPackets.filter(p => p.id !== fromPacketId);
+
+  return (
+    <>
+      <div
+        className="fixed inset-0 bg-black/40 z-40"
+        onClick={onClose}
+      />
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-3xl shadow-2xl max-h-[70svh] overflow-y-auto">
+        {/* Handle */}
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-10 h-1 rounded-full bg-gray-200" />
+        </div>
+        <div className="px-4 pb-10">
+          <p className="text-[10px] font-bold text-brand-navy/60 uppercase tracking-widest mb-1">Move receipt</p>
+          <p className="text-base font-bold text-gray-900 mb-4 truncate">{receipt.vendor_name}</p>
+
+          {others.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-8">No other packets to move to.</p>
+          ) : (
+            <div className="space-y-2">
+              {others.map(p => {
+                const isExported = p.status === "exported";
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => onMove(receipt.id, fromPacketId, p.id)}
+                    className="w-full flex items-center justify-between px-4 py-3 rounded-2xl text-left transition-colors active:scale-[0.99]"
+                    style={{
+                      background: "#f8fafc",
+                      border: "1px solid #e2e8f0",
+                      opacity: isExported ? 0.65 : 1,
+                    }}>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-semibold truncate" style={{ color: "#00283C" }}>{p.label}</p>
+                        {isExported && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0"
+                            style={{ background: "rgba(34,197,94,0.12)", color: "#16a34a" }}>
+                            Exported
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-gray-400 mt-0.5">
+                        {new Date(p.date_from).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        {" – "}
+                        {new Date(p.date_to).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        {" · "}{p.receipts.length} receipt{p.receipts.length !== 1 ? "s" : ""}
+                      </p>
+                    </div>
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="flex-shrink-0 ml-3">
+                      <path d="M6 4l4 4-4 4" stroke="#9ca3af" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          <button
+            onClick={onClose}
+            className="w-full mt-4 py-3 rounded-xl text-sm font-medium text-gray-500"
+            style={{ background: "#f1f5f9" }}>
+            Cancel
           </button>
         </div>
       </div>
@@ -262,7 +373,11 @@ async function fetchImgBase64(url: string): Promise<{ data: string; fmt: string;
 }
 
 /* ─── PDF export ─────────────────────────────────────────── */
-async function exportPDF(packet: Packet & { receipts: Receipt[] }, userName: string) {
+async function exportPDF(
+  packet: Packet & { receipts: Receipt[] },
+  userName: string,
+  label?: string,
+) {
   const { default: jsPDF } = await import("jspdf");
 
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "letter" });
@@ -278,11 +393,11 @@ async function exportPDF(packet: Packet & { receipts: Receipt[] }, userName: str
   const fmtDate  = (d: string) =>
     new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
-  const COLS     = 3;
-  const COL_GAP  = 5;
-  const ROW_GAP  = 8;
-  const COL_W    = (CW - COL_GAP * (COLS - 1)) / COLS;
-  const IMG_H    = 74;
+  const COLS    = 3;
+  const COL_GAP = 5;
+  const ROW_GAP = 8;
+  const COL_W   = (CW - COL_GAP * (COLS - 1)) / COLS;
+  const IMG_H   = 74;
   const INFO_GAP = 2.5;
   const INFO_H   = 24;
   const CELL_H   = IMG_H + INFO_GAP + INFO_H;
@@ -293,6 +408,8 @@ async function exportPDF(packet: Packet & { receipts: Receipt[] }, userName: str
       imgCache[r.id] = await fetchImgBase64(r.image_url!);
     })
   );
+
+  const packetLabel = label ?? packet.label;
 
   const drawHeader = () => {
     doc.setFillColor(0, 40, 60);
@@ -308,7 +425,7 @@ async function exportPDF(packet: Packet & { receipts: Receipt[] }, userName: str
     doc.text("Expense Receipt Packet", ML + 2, 21);
     doc.setFontSize(9);
     doc.setTextColor(0, 214, 242);
-    doc.text(packet.label, PW - MR, 21, { align: "right" });
+    doc.text(packetLabel, PW - MR, 21, { align: "right" });
     doc.setFontSize(7.5);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(160, 200, 215);
@@ -365,9 +482,7 @@ async function exportPDF(packet: Packet & { receipts: Receipt[] }, userName: str
         let iW = COL_W - 2;
         let iH = (img.natH / img.natW) * iW;
         if (iH > IMG_H - 2) { iH = IMG_H - 2; iW = (img.natW / img.natH) * iH; }
-        const xImg = x + (COL_W - iW) / 2;
-        const yImg = y + (IMG_H - iH) / 2;
-        doc.addImage(img.data, img.fmt, xImg, yImg, iW, iH);
+        doc.addImage(img.data, img.fmt, x + (COL_W - iW) / 2, y + (IMG_H - iH) / 2, iW, iH);
       } else if (isBank) {
         const fd = r.missing_receipt_form;
         doc.setFont("helvetica", "bold");
@@ -375,14 +490,10 @@ async function exportPDF(packet: Packet & { receipts: Receipt[] }, userName: str
         doc.setTextColor(100, 116, 139);
         doc.text("BANK TRANSACTION", x + COL_W / 2, y + IMG_H / 2 - 6, { align: "center" });
         doc.text("No receipt image", x + COL_W / 2, y + IMG_H / 2 - 1, { align: "center" });
-        const statusColor = formDone ? [22, 163, 74] : [180, 100, 0] as [number,number,number];
-        doc.setTextColor(...statusColor as [number,number,number]);
+        const statusColor = formDone ? [22, 163, 74] : [180, 100, 0] as [number, number, number];
+        doc.setTextColor(...statusColor as [number, number, number]);
         doc.setFontSize(7);
-        doc.text(
-          formDone ? "Form Complete" : "Form Pending",
-          x + COL_W / 2, y + IMG_H / 2 + 6,
-          { align: "center" }
-        );
+        doc.text(formDone ? "Form Complete" : "Form Pending", x + COL_W / 2, y + IMG_H / 2 + 6, { align: "center" });
         if (fd?.business_purpose) {
           doc.setFont("helvetica", "italic");
           doc.setFontSize(6);
@@ -407,10 +518,7 @@ async function exportPDF(packet: Packet & { receipts: Receipt[] }, userName: str
       doc.setFont("helvetica", "bold");
       doc.setFontSize(7);
       doc.setTextColor(5, 15, 35);
-      const vendorStr = doc.splitTextToSize(r.vendor_name, COL_W - 22)[0];
-      doc.text(vendorStr, x + 3, iy + 6.5);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(7);
+      doc.text(doc.splitTextToSize(r.vendor_name, COL_W - 22)[0], x + 3, iy + 6.5);
       doc.setTextColor(0, 40, 60);
       doc.text(`$${Number(r.amount).toFixed(2)}`, x + COL_W - 3, iy + 6.5, { align: "right" });
       doc.setFont("helvetica", "normal");
@@ -421,8 +529,7 @@ async function exportPDF(packet: Packet & { receipts: Receipt[] }, userName: str
       doc.setFontSize(5.8);
       doc.setTextColor(160, 174, 192);
       if (r.notes) {
-        const noteLine = doc.splitTextToSize(r.notes, COL_W - 6)[0];
-        doc.text(noteLine, x + 3, iy + 18.5);
+        doc.text(doc.splitTextToSize(r.notes, COL_W - 6)[0], x + 3, iy + 18.5);
       } else {
         doc.text(r.source.replace(/_/g, " "), x + 3, iy + 18.5);
       }
@@ -445,7 +552,7 @@ async function exportPDF(packet: Packet & { receipts: Receipt[] }, userName: str
   doc.text(`$${total.toFixed(2)} USD`, PW - MR, y, { align: "right" });
 
   pdfFooter(doc, PW, PH);
-  doc.save(`${packet.label.replace(/\s+/g, "_")}_expense_packet.pdf`);
+  doc.save(`${packetLabel.replace(/\s+/g, "_")}_expense_packet.pdf`);
 }
 
 /* ─── Main component ─────────────────────────────────────── */
@@ -456,12 +563,22 @@ export default function PacketList({
   country: string;
   userName?: string;
 }) {
-  const [sheetReceipt,  setSheetReceipt]  = useState<Receipt | null>(null);
-  const [detailReceipt, setDetailReceipt] = useState<Receipt | null>(null);
-  const [localPackets,  setLocalPackets]  = useState(packets);
-  const [editMode,      setEditMode]      = useState(false);
+  const [sheetReceipt,   setSheetReceipt]   = useState<Receipt | null>(null);
+  const [detailReceipt,  setDetailReceipt]  = useState<Receipt | null>(null);
+  const [localPackets,   setLocalPackets]   = useState(packets);
+  const [editMode,       setEditMode]       = useState(false);
+  const [exportingId,    setExportingId]    = useState<string | null>(null);
 
-  // Packets whose date_to is in the past start collapsed; the current (or future) month starts open
+  // Date range filter
+  const [showFilter,  setShowFilter]  = useState(false);
+  const [filterFrom,  setFilterFrom]  = useState("");
+  const [filterTo,    setFilterTo]    = useState("");
+  const isFiltered = !!(filterFrom || filterTo);
+
+  // Move-to-packet
+  const [movingReceipt, setMovingReceipt] = useState<{ receipt: Receipt; fromPacketId: string } | null>(null);
+
+  // Collapse state — past packets start collapsed, current/future open
   const [collapsed, setCollapsed] = useState<Set<string>>(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -480,6 +597,17 @@ export default function PacketList({
     });
   }
 
+  /** Filter a receipt list by transaction date range */
+  function applyDateFilter(receipts: Receipt[]): Receipt[] {
+    if (!isFiltered) return receipts;
+    return receipts.filter(r => {
+      const d = r.transaction_date;
+      if (filterFrom && d < filterFrom) return false;
+      if (filterTo   && d > filterTo)   return false;
+      return true;
+    });
+  }
+
   async function handleDelete(receiptId: string) {
     const res = await fetch(`/api/receipts/${receiptId}`, { method: "DELETE" });
     if (res.ok) {
@@ -490,6 +618,69 @@ export default function PacketList({
       );
     }
   }
+
+  /** Export PDF, then mark packet + visible receipts as exported */
+  async function handleExport(packet: Packet & { receipts: Receipt[] }) {
+    const visibleReceipts = applyDateFilter(packet.receipts);
+    if (visibleReceipts.length === 0) return;
+
+    setExportingId(packet.id);
+    try {
+      await exportPDF({ ...packet, receipts: visibleReceipts }, userName);
+
+      // Mark on server
+      const res = await fetch(`/api/packets/${packet.id}/export`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ receipt_ids: visibleReceipts.map(r => r.id) }),
+      });
+
+      if (res.ok) {
+        const { exported_at } = await res.json();
+        const exportedIds = new Set(visibleReceipts.map(r => r.id));
+        setLocalPackets(prev => prev.map(p => {
+          if (p.id !== packet.id) return p;
+          return {
+            ...p,
+            status:      "exported" as PacketStatus,
+            exported_at: exported_at,
+            receipts:    p.receipts.map(r =>
+              exportedIds.has(r.id) ? { ...r, exported_at } : r
+            ),
+          };
+        }));
+        trackEvent("pdf_exported", { packet_id: packet.id, receipt_count: visibleReceipts.length });
+      }
+    } finally {
+      setExportingId(null);
+    }
+  }
+
+  /** Move a receipt from one packet to another */
+  async function handleMove(receiptId: string, fromPacketId: string, toPacketId: string) {
+    const res = await fetch(`/api/receipts/${receiptId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ move_to_packet_id: toPacketId }),
+    });
+    if (!res.ok) return;
+
+    setLocalPackets(prev => {
+      const receipt = prev.find(p => p.id === fromPacketId)?.receipts.find(r => r.id === receiptId);
+      if (!receipt) return prev;
+      return prev.map(p => {
+        if (p.id === fromPacketId) return { ...p, receipts: p.receipts.filter(r => r.id !== receiptId) };
+        if (p.id === toPacketId)   return { ...p, receipts: [...p.receipts, receipt] };
+        return p;
+      }).filter(p => p.receipts.length > 0);
+    });
+    setMovingReceipt(null);
+  }
+
+  // Compute filtered total across all packets (shown when filter is active)
+  const allFilteredReceipts = isFiltered
+    ? localPackets.flatMap(p => applyDateFilter(p.receipts))
+    : [];
 
   const pendingForms = localPackets
     .flatMap(p => p.receipts ?? [])
@@ -510,10 +701,58 @@ export default function PacketList({
 
   return (
     <>
+      {/* ── Date range filter bar ──────────────────────────────────────── */}
+      <div className="mb-4">
+        <button
+          onClick={() => { setShowFilter(f => !f); if (showFilter) { setFilterFrom(""); setFilterTo(""); } }}
+          className="flex items-center gap-1.5 text-xs font-semibold transition-colors"
+          style={{ color: isFiltered ? "#00D6F2" : "#9ca3af" }}>
+          <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+            <path d="M1 3h12M3 7h8M5 11h4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+          </svg>
+          {isFiltered ? `Filtered · ${allFilteredReceipts.length} receipt${allFilteredReceipts.length !== 1 ? "s" : ""}` : "Filter by transaction date"}
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none"
+            style={{ transform: showFilter ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.15s" }}>
+            <path d="M2 3.5l3 3 3-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
+
+        {showFilter && (
+          <div className="mt-2 flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1.5">
+              <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">From</label>
+              <input
+                type="date"
+                value={filterFrom}
+                onChange={e => setFilterFrom(e.target.value)}
+                className="px-2.5 py-1.5 rounded-lg text-xs outline-none"
+                style={{ background: "#f8fafc", border: "1px solid #e2e8f0", color: "#111827" }}
+              />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">To</label>
+              <input
+                type="date"
+                value={filterTo}
+                onChange={e => setFilterTo(e.target.value)}
+                className="px-2.5 py-1.5 rounded-lg text-xs outline-none"
+                style={{ background: "#f8fafc", border: "1px solid #e2e8f0", color: "#111827" }}
+              />
+            </div>
+            {isFiltered && (
+              <button
+                onClick={() => { setFilterFrom(""); setFilterTo(""); }}
+                className="text-[10px] font-semibold text-gray-400 hover:text-red-400 transition-colors">
+                Clear
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* ── Alert banners ──────────────────────────────────────────────── */}
       {blockedReceipts.length > 0 && (
-        <div
-          className="mb-4 px-4 py-3 rounded-2xl"
+        <div className="mb-4 px-4 py-3 rounded-2xl"
           style={{ background: "#fef2f2", border: "1px solid rgba(239,68,68,0.25)" }}>
           <p className="text-xs font-semibold text-red-600">
             {blockedReceipts.length} receipt{blockedReceipts.length > 1 ? "s" : ""} overdue — remove before exporting
@@ -521,8 +760,7 @@ export default function PacketList({
         </div>
       )}
       {pendingForms.length > 0 && (
-        <div
-          className="mb-4 px-4 py-3 rounded-2xl"
+        <div className="mb-4 px-4 py-3 rounded-2xl"
           style={{ background: "#fffbeb", border: "1px solid rgba(245,158,11,0.3)" }}>
           <p className="text-xs font-semibold text-amber-700">
             {pendingForms.length} missing receipt form{pendingForms.length > 1 ? "s" : ""} need attention — tap the 📋 icon
@@ -532,22 +770,31 @@ export default function PacketList({
 
       <div className="space-y-6">
         {localPackets.map(packet => {
-          const receipts   = packet.receipts ?? [];
-          const total      = receipts.reduce((s, r) => s + Number(r.amount), 0);
-          const hasBlocked = receipts.some(r => isPolicyApplicable(country as "US" | "CA") && daysOld(r.transaction_date) >= 61);
-          const hasPending = receipts.some(r => r.source === "bank_transaction" && !r.missing_receipt_form?.completed_at);
-          const canExport  = !hasBlocked && !hasPending;
+          const allReceipts     = packet.receipts ?? [];
+          const visibleReceipts = applyDateFilter(allReceipts);
+          const total           = visibleReceipts.reduce((s, r) => s + Number(r.amount), 0);
+          const isExported      = packet.status === "exported";
 
+          // If filter is active and no receipts match, hide this packet
+          if (isFiltered && visibleReceipts.length === 0) return null;
+
+          const hasBlocked = visibleReceipts.some(r =>
+            isPolicyApplicable(country as "US" | "CA") && daysOld(r.transaction_date) >= 61
+          );
+          const hasPending = visibleReceipts.some(r =>
+            r.source === "bank_transaction" && !r.missing_receipt_form?.completed_at
+          );
+          const canExport  = !hasBlocked && !hasPending && visibleReceipts.length > 0;
+          const isRunning  = exportingId === packet.id;
           const isCollapsed = collapsed.has(packet.id);
 
           return (
-            <div key={packet.id}>
-              {/* Packet header — clickable to collapse/expand */}
+            <div key={packet.id} style={{ opacity: isExported ? 0.75 : 1 }}>
+              {/* Packet header */}
               <button
                 onClick={() => toggleCollapsed(packet.id)}
                 className="w-full flex items-center justify-between mb-2 px-1 py-1 rounded-xl transition-colors hover:bg-black/[0.03] active:bg-black/[0.05]">
                 <div className="flex items-center gap-2 min-w-0">
-                  {/* Chevron */}
                   <svg
                     width="14" height="14" viewBox="0 0 14 14" fill="none"
                     className="flex-shrink-0 transition-transform duration-200"
@@ -555,7 +802,21 @@ export default function PacketList({
                     <path d="M3 5l4 4 4-4" stroke="#9ca3af" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                   <div className="text-left min-w-0">
-                    <h2 className="text-sm font-bold" style={{ color: "#00283C" }}>{packet.label}</h2>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h2 className="text-sm font-bold" style={{ color: "#00283C" }}>{packet.label}</h2>
+                      {isExported && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none"
+                          style={{ background: "rgba(34,197,94,0.12)", color: "#16a34a", border: "1px solid rgba(34,197,94,0.2)" }}>
+                          Exported
+                        </span>
+                      )}
+                      {isFiltered && (
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full leading-none"
+                          style={{ background: "rgba(0,214,242,0.1)", color: "#00283C" }}>
+                          {visibleReceipts.length} of {allReceipts.length} shown
+                        </span>
+                      )}
+                    </div>
                     <p className="text-[11px] text-gray-400">
                       {new Date(packet.date_from).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                       {" – "}
@@ -566,14 +827,16 @@ export default function PacketList({
                 </div>
                 <div className="text-right flex-shrink-0">
                   <p className="text-sm font-bold" style={{ color: "#00283C" }}>${total.toFixed(2)}</p>
-                  <p className="text-[11px] text-gray-400">{receipts.length} receipt{receipts.length !== 1 ? "s" : ""}</p>
+                  <p className="text-[11px] text-gray-400">
+                    {visibleReceipts.length} receipt{visibleReceipts.length !== 1 ? "s" : ""}
+                  </p>
                 </div>
               </button>
 
               {/* Collapsible body */}
               {!isCollapsed && (
                 <>
-                  {receipts.map(r => (
+                  {visibleReceipts.map(r => (
                     <ReceiptCard
                       key={r.id}
                       receipt={r}
@@ -582,30 +845,26 @@ export default function PacketList({
                       onFormIconClick={setSheetReceipt}
                       onDelete={handleDelete}
                       onEditClick={(r) => { setEditMode(true); setDetailReceipt(r); }}
+                      onMoveClick={(r) => setMovingReceipt({ receipt: r, fromPacketId: packet.id })}
                     />
                   ))}
 
                   {/* Export row */}
                   <div className="flex items-center justify-end gap-2 mt-3">
-                    {!canExport && (
+                    {!canExport && visibleReceipts.length > 0 && (
                       <p className="text-[11px] flex-1 text-amber-600">
                         {hasPending ? "Complete forms to export" : "Remove overdue receipts first"}
                       </p>
                     )}
                     <button
-                      disabled={!canExport}
-                      onClick={() => {
-                        if (canExport) {
-                          exportPDF(packet, userName);
-                          trackEvent("pdf_exported", { packet_id: packet.id, receipt_count: receipts.length });
-                        }
-                      }}
+                      disabled={!canExport || isRunning}
+                      onClick={() => handleExport(packet)}
                       className="px-5 py-2 rounded-xl text-xs font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                       style={canExport
-                        ? { background: "#00D6F2", color: "#00283C" }
+                        ? { background: isExported ? "#f1f5f9" : "#00D6F2", color: isExported ? "#374151" : "#00283C", border: isExported ? "1px solid #e2e8f0" : "none" }
                         : { background: "#f1f5f9", color: "#9ca3af", border: "1px solid #e2e8f0" }
                       }>
-                      Export PDF
+                      {isRunning ? "Generating…" : isExported ? "Re-export PDF" : "Export PDF"}
                     </button>
                   </div>
                 </>
@@ -614,6 +873,17 @@ export default function PacketList({
           );
         })}
       </div>
+
+      {/* ── Move sheet ──────────────────────────────────────────────────── */}
+      {movingReceipt && (
+        <MoveSheet
+          receipt={movingReceipt.receipt}
+          fromPacketId={movingReceipt.fromPacketId}
+          allPackets={localPackets}
+          onMove={handleMove}
+          onClose={() => setMovingReceipt(null)}
+        />
+      )}
 
       {sheetReceipt && (
         <MissingReceiptSheet
