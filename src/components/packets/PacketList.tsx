@@ -387,21 +387,19 @@ async function exportPDF(
   const MR  = 14;
   const CW  = PW - ML - MR;
 
-  const receipts = packet.receipts;
-  const total    = receipts.reduce((s, r) => s + Number(r.amount), 0);
-  const cap      = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-  const fmtDate  = (d: string) =>
+  const receipts    = packet.receipts;
+  const total       = receipts.reduce((s, r) => s + Number(r.amount), 0);
+  const cap         = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+  const fmtDate     = (d: string) =>
     new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  const packetLabel = label ?? packet.label;
 
-  const COLS    = 3;
-  const COL_GAP = 5;
-  const ROW_GAP = 8;
-  const COL_W   = (CW - COL_GAP * (COLS - 1)) / COLS;
-  const IMG_H   = 74;
-  const INFO_GAP = 2.5;
-  const INFO_H   = 24;
-  const CELL_H   = IMG_H + INFO_GAP + INFO_H;
+  const photoReceipts = receipts.filter(r => r.source !== "bank_transaction");
+  const bankReceipts  = receipts.filter(r => r.source === "bank_transaction");
 
+  // Prefetch all images
+  // TODO: future — run fetched images through an AI upscaling API (e.g. Real-ESRGAN)
+  //       before embedding, to improve legibility of small/blurry receipt scans.
   const imgCache: Record<string, Awaited<ReturnType<typeof fetchImgBase64>>> = {};
   await Promise.all(
     receipts.filter(r => r.image_url).map(async r => {
@@ -409,35 +407,30 @@ async function exportPDF(
     })
   );
 
-  const packetLabel = label ?? packet.label;
+  // ── PAGE 1: COVER / SUMMARY ────────────────────────────────────
 
-  const drawHeader = () => {
-    doc.setFillColor(0, 40, 60);
-    doc.rect(0, 0, PW, 36, "F");
-    doc.setFillColor(0, 214, 242);
-    doc.rect(0, 0, 4, 36, "F");
-    doc.setTextColor(0, 214, 242);
-    doc.setFontSize(7);
-    doc.setFont("helvetica", "bold");
-    doc.text("INSIGHT GLOBAL LLC", ML + 2, 9);
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(18);
-    doc.text("Expense Receipt Packet", ML + 2, 21);
-    doc.setFontSize(9);
-    doc.setTextColor(0, 214, 242);
-    doc.text(packetLabel, PW - MR, 21, { align: "right" });
-    doc.setFontSize(7.5);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(160, 200, 215);
-    doc.text(`${userName}  ·  ${fmtDate(packet.date_from)} – ${fmtDate(packet.date_to)}`, ML + 2, 29);
-    doc.text(`Generated: ${new Date().toLocaleDateString("en-US")}`, PW - MR, 29, { align: "right" });
-  };
+  // Header bar
+  doc.setFillColor(0, 40, 60);
+  doc.rect(0, 0, PW, 36, "F");
+  doc.setFillColor(0, 214, 242);
+  doc.rect(0, 0, 4, 36, "F");
+  doc.setTextColor(0, 214, 242);
+  doc.setFontSize(7);
+  doc.setFont("helvetica", "bold");
+  doc.text("INSIGHT GLOBAL LLC", ML + 2, 9);
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(18);
+  doc.text("Expense Receipt Packet", ML + 2, 21);
+  doc.setFontSize(9);
+  doc.setTextColor(0, 214, 242);
+  doc.text(packetLabel, PW - MR, 21, { align: "right" });
+  doc.setFontSize(7.5);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(160, 200, 215);
+  doc.text(`${userName}  ·  ${fmtDate(packet.date_from)} – ${fmtDate(packet.date_to)}`, ML + 2, 29);
+  doc.text(`Generated: ${new Date().toLocaleDateString("en-US")}`, PW - MR, 29, { align: "right" });
 
-  drawHeader();
-
-  const photoCount = receipts.filter(r => r.source !== "bank_transaction").length;
-  const bankCount  = receipts.length - photoCount;
-
+  // Summary stats bar
   doc.setFillColor(241, 245, 249);
   doc.rect(0, 36, PW, 15, "F");
   doc.setDrawColor(220, 228, 236);
@@ -451,105 +444,327 @@ async function exportPDF(
   doc.setFontSize(7.5);
   doc.setTextColor(100, 116, 139);
   doc.text(
-    `Total  ·  ${receipts.length} receipt${receipts.length !== 1 ? "s" : ""}  ·  ${photoCount} itemized  ·  ${bankCount} bank`,
+    `Total  ·  ${receipts.length} receipt${receipts.length !== 1 ? "s" : ""}  ·  ${photoReceipts.length} itemized  ·  ${bankReceipts.length} bank`,
     ML + 30, 46
   );
 
+  // Receipt index table
   let y = 57;
+  const COL_VENDOR = 75, COL_DATE = 28, COL_CAT = 26, COL_AMT = 22, COL_TYPE = 27;
+  const ROW_H = 7.5;
 
-  const rows: (typeof receipts)[] = [];
-  for (let i = 0; i < receipts.length; i += COLS) rows.push(receipts.slice(i, i + COLS));
+  // Table header
+  doc.setFillColor(0, 40, 60);
+  doc.rect(ML, y, CW, 8, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(6);
+  doc.setTextColor(255, 255, 255);
+  let cx = ML + 2;
+  doc.text("Vendor", cx, y + 5); cx += COL_VENDOR;
+  doc.text("Date", cx, y + 5); cx += COL_DATE;
+  doc.text("Category", cx, y + 5); cx += COL_CAT;
+  doc.text("Amount", cx, y + 5); cx += COL_AMT;
+  doc.text("Type", cx, y + 5);
+  y += 8;
 
-  rows.forEach((row) => {
-    if (y + CELL_H > PH - 18) {
+  receipts.forEach((r, idx) => {
+    if (y + ROW_H > PH - 30) {
       pdfFooter(doc, PW, PH);
       doc.addPage();
       y = 16;
     }
+    const rowFill = idx % 2 === 0 ? [255, 255, 255] : [248, 250, 252];
+    doc.setFillColor(...(rowFill as [number, number, number]));
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.2);
+    doc.rect(ML, y, CW, ROW_H, "FD");
 
-    row.forEach((r, col) => {
-      const x        = ML + col * (COL_W + COL_GAP);
-      const img      = imgCache[r.id] ?? null;
-      const isBank   = r.source === "bank_transaction";
-      const formDone = !!r.missing_receipt_form?.completed_at;
-
-      doc.setFillColor(245, 247, 250);
-      doc.setDrawColor(220, 228, 236);
-      doc.setLineWidth(0.25);
-      doc.rect(x, y, COL_W, IMG_H, "FD");
-
-      if (img) {
-        let iW = COL_W - 2;
-        let iH = (img.natH / img.natW) * iW;
-        if (iH > IMG_H - 2) { iH = IMG_H - 2; iW = (img.natW / img.natH) * iH; }
-        doc.addImage(img.data, img.fmt, x + (COL_W - iW) / 2, y + (IMG_H - iH) / 2, iW, iH);
-      } else if (isBank) {
-        const fd = r.missing_receipt_form;
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(6.5);
-        doc.setTextColor(100, 116, 139);
-        doc.text("BANK TRANSACTION", x + COL_W / 2, y + IMG_H / 2 - 6, { align: "center" });
-        doc.text("No receipt image", x + COL_W / 2, y + IMG_H / 2 - 1, { align: "center" });
-        const statusColor = formDone ? [22, 163, 74] : [180, 100, 0] as [number, number, number];
-        doc.setTextColor(...statusColor as [number, number, number]);
-        doc.setFontSize(7);
-        doc.text(formDone ? "Form Complete" : "Form Pending", x + COL_W / 2, y + IMG_H / 2 + 6, { align: "center" });
-        if (fd?.business_purpose) {
-          doc.setFont("helvetica", "italic");
-          doc.setFontSize(6);
-          doc.setTextColor(130, 145, 165);
-          const bpLines = doc.splitTextToSize(fd.business_purpose, COL_W - 8);
-          doc.text(bpLines.slice(0, 2), x + COL_W / 2, y + IMG_H / 2 + 14, { align: "center" });
-        }
-      } else {
-        doc.setFont("helvetica", "italic");
-        doc.setFontSize(6.5);
-        doc.setTextColor(160, 174, 192);
-        doc.text("No image", x + COL_W / 2, y + IMG_H / 2, { align: "center" });
-      }
-
-      const iy = y + IMG_H + INFO_GAP;
-      doc.setFillColor(255, 255, 255);
-      doc.setDrawColor(220, 228, 236);
-      doc.setLineWidth(0.25);
-      doc.rect(x, iy, COL_W, INFO_H, "FD");
-      doc.setFillColor(0, 214, 242);
-      doc.rect(x, iy, COL_W, 1.2, "F");
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(7);
-      doc.setTextColor(5, 15, 35);
-      doc.text(doc.splitTextToSize(r.vendor_name, COL_W - 22)[0], x + 3, iy + 6.5);
-      doc.setTextColor(0, 40, 60);
-      doc.text(`$${Number(r.amount).toFixed(2)}`, x + COL_W - 3, iy + 6.5, { align: "right" });
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(6);
-      doc.setTextColor(100, 116, 139);
-      doc.text(fmtDate(r.transaction_date), x + 3, iy + 12.5);
-      doc.text(cap(r.category), x + COL_W - 3, iy + 12.5, { align: "right" });
-      doc.setFontSize(5.8);
-      doc.setTextColor(160, 174, 192);
-      if (r.notes) {
-        doc.text(doc.splitTextToSize(r.notes, COL_W - 6)[0], x + 3, iy + 18.5);
-      } else {
-        doc.text(r.source.replace(/_/g, " "), x + 3, iy + 18.5);
-      }
-    });
-
-    y += CELL_H + ROW_GAP;
+    const isBank = r.source === "bank_transaction";
+    doc.setFont("helvetica", isBank ? "italic" : "normal");
+    doc.setFontSize(6.5);
+    doc.setTextColor(30, 40, 60);
+    let rx = ML + 2;
+    doc.text(doc.splitTextToSize(r.vendor_name, COL_VENDOR - 4)[0], rx, y + 5); rx += COL_VENDOR;
+    doc.text(fmtDate(r.transaction_date), rx, y + 5); rx += COL_DATE;
+    doc.text(cap(r.category), rx, y + 5); rx += COL_CAT;
+    doc.setFont("helvetica", "bold");
+    doc.text(`$${Number(r.amount).toFixed(2)}`, rx, y + 5); rx += COL_AMT;
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(isBank ? 146 : 100, isBank ? 64 : 116, isBank ? 14 : 139);
+    doc.text(isBank ? "Bank txn" : r.source.replace(/_/g, " "), rx, y + 5);
+    y += ROW_H;
   });
 
-  if (y + 16 > PH - 18) { pdfFooter(doc, PW, PH); doc.addPage(); y = 16; }
-  y += 2;
-  doc.setDrawColor(0, 40, 60);
-  doc.setLineWidth(0.5);
-  doc.line(ML, y, ML + CW, y);
-  y += 7;
+  // Grand total row
+  if (y + 10 > PH - 22) { pdfFooter(doc, PW, PH); doc.addPage(); y = 16; }
+  doc.setFillColor(0, 40, 60);
+  doc.rect(ML, y, CW, 10, "F");
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(11);
-  doc.setTextColor(0, 40, 60);
-  doc.text("Grand Total", ML + 2, y);
-  doc.setFontSize(12);
-  doc.text(`$${total.toFixed(2)} USD`, PW - MR, y, { align: "right" });
+  doc.setFontSize(8);
+  doc.setTextColor(255, 255, 255);
+  doc.text("Grand Total", ML + 2, y + 7);
+  doc.setTextColor(0, 214, 242);
+  doc.text(`$${total.toFixed(2)} USD`, PW - MR - 2, y + 7, { align: "right" });
+
+  // ── Panel layout constants ────────────────────────────────────────────
+  const GAP    = 4;                 // gap between left / right panels
+  const HALF   = (CW - GAP) / 2;   // ~91.95 mm per panel
+  const L_X    = ML;
+  const R_X    = ML + HALF + GAP;
+  const PG_HD  = 18;                // page header bar height
+  const PNL_Y  = PG_HD + 2;        // panels start at 20 mm
+  const PNL_H  = PH - PNL_Y - 16;  // ~243 mm tall
+  const INFO_H = 15;                // info bar at top of each panel
+
+  // ── Helper: full-width page header bar ───────────────────────────────
+  function drawPageHeader(text: string, accentR = 0, accentG = 214, accentB = 242) {
+    doc.setFillColor(0, 40, 60);
+    doc.rect(0, 0, PW, PG_HD, "F");
+    doc.setFillColor(accentR, accentG, accentB);
+    doc.rect(0, 0, 4, PG_HD, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.setTextColor(255, 255, 255);
+    doc.text(text, ML + 2, 11);
+    doc.setFontSize(7);
+    doc.setTextColor(accentR, accentG, accentB);
+    doc.text(packetLabel, PW - MR, 11, { align: "right" });
+  }
+
+  // ── Helper: draw one receipt panel (image + info bar) ────────────────
+  function drawReceiptPanel(r: Receipt, panelX: number) {
+    const img      = imgCache[r.id] ?? null;
+    const iAreaX   = panelX + 3;
+    const iAreaY   = PNL_Y + INFO_H + 3;
+    const iAreaW   = HALF - 6;
+    const iAreaH   = PNL_H - INFO_H - 6;
+
+    // Outer card
+    doc.setFillColor(252, 253, 255);
+    doc.setDrawColor(220, 228, 236);
+    doc.setLineWidth(0.35);
+    doc.rect(panelX, PNL_Y, HALF, PNL_H, "FD");
+
+    // Navy info bar
+    doc.setFillColor(0, 40, 60);
+    doc.rect(panelX, PNL_Y, HALF, INFO_H, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(255, 255, 255);
+    doc.text(doc.splitTextToSize(r.vendor_name, HALF - 26)[0], panelX + 3, PNL_Y + 7);
+    doc.setTextColor(0, 214, 242);
+    doc.text(`$${Number(r.amount).toFixed(2)}`, panelX + HALF - 3, PNL_Y + 7, { align: "right" });
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(5.5);
+    doc.setTextColor(160, 200, 215);
+    doc.text(
+      `${fmtDate(r.transaction_date)}  ·  ${cap(r.category)}`,
+      panelX + 3, PNL_Y + 13
+    );
+
+    // Receipt image or placeholder
+    if (img) {
+      let iW = iAreaW;
+      let iH = (img.natH / img.natW) * iW;
+      if (iH > iAreaH) { iH = iAreaH; iW = (img.natW / img.natH) * iH; }
+      doc.addImage(img.data, img.fmt,
+        iAreaX + (iAreaW - iW) / 2,
+        iAreaY + (iAreaH - iH) / 2,
+        iW, iH
+      );
+    } else {
+      doc.setFillColor(245, 247, 250);
+      doc.setDrawColor(226, 232, 240);
+      doc.setLineWidth(0.2);
+      doc.rect(iAreaX, iAreaY, iAreaW, iAreaH, "FD");
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(8);
+      doc.setTextColor(160, 174, 192);
+      doc.text("No image available", panelX + HALF / 2, iAreaY + iAreaH / 2, { align: "center" });
+    }
+  }
+
+  // ── PHOTO RECEIPT PAGES (two per page, side-by-side panels) ──────────
+  for (let i = 0; i < photoReceipts.length; i += 2) {
+    pdfFooter(doc, PW, PH);
+    doc.addPage();
+    drawPageHeader("Itemized Receipts");
+    drawReceiptPanel(photoReceipts[i], L_X);
+    if (i + 1 < photoReceipts.length) {
+      drawReceiptPanel(photoReceipts[i + 1], R_X);
+    }
+  }
+
+  // ── BANK TRANSACTION PAGES (one per page, 50/50: details | form) ────
+  for (const r of bankReceipts) {
+    pdfFooter(doc, PW, PH);
+    doc.addPage();
+
+    const form     = r.missing_receipt_form;
+    const formDone = !!form?.completed_at;
+
+    drawPageHeader("Bank Transaction", 245, 158, 11);
+
+    // ── LEFT PANEL: Transaction details ──────────────────────────────
+    doc.setFillColor(255, 252, 240);
+    doc.setDrawColor(253, 211, 77);
+    doc.setLineWidth(0.35);
+    doc.rect(L_X, PNL_Y, HALF, PNL_H, "FD");
+
+    // Amber info bar
+    doc.setFillColor(245, 158, 11);
+    doc.rect(L_X, PNL_Y, HALF, INFO_H, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7);
+    doc.setTextColor(0, 40, 60);
+    doc.text("Transaction Details", L_X + 3, PNL_Y + 7);
+    doc.text(`$${Number(r.amount).toFixed(2)}`, L_X + HALF - 3, PNL_Y + 7, { align: "right" });
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(5.5);
+    doc.setTextColor(60, 35, 0);
+    doc.text(fmtDate(r.transaction_date), L_X + 3, PNL_Y + 13);
+
+    let ly = PNL_Y + INFO_H + 12;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.setTextColor(0, 40, 60);
+    const vendorLines = doc.splitTextToSize(r.vendor_name, HALF - 10);
+    doc.text(vendorLines.slice(0, 2), L_X + 5, ly);
+    ly += Math.min(vendorLines.length, 2) * 8 + 4;
+
+    doc.setFontSize(22);
+    doc.text(`$${Number(r.amount).toFixed(2)}`, L_X + 5, ly);
+    ly += 12;
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(100, 116, 139);
+    doc.text(fmtDate(r.transaction_date), L_X + 5, ly);
+    ly += 6;
+    doc.text(cap(r.category), L_X + 5, ly);
+    ly += 14;
+
+    const badgeFill   = formDone ? [220, 252, 231] : [254, 243, 199];
+    const badgeBorder = formDone ? [134, 239, 172] : [253, 230, 138];
+    const badgeText   = formDone ? [21, 128, 61]   : [146, 64, 14];
+    doc.setFillColor( ...(badgeFill   as [number,number,number]));
+    doc.setDrawColor( ...(badgeBorder as [number,number,number]));
+    doc.setLineWidth(0.3);
+    doc.roundedRect(L_X + 5, ly, HALF - 10, 9, 2, 2, "FD");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6.5);
+    doc.setTextColor( ...(badgeText as [number,number,number]));
+    doc.text(
+      formDone ? "Form — Complete ✓" : "Form — Pending",
+      L_X + 7, ly + 6.5
+    );
+
+    // ── RIGHT PANEL: Missing Receipt Form ────────────────────────────
+    doc.setFillColor(250, 252, 255);
+    doc.setDrawColor(220, 228, 236);
+    doc.setLineWidth(0.35);
+    doc.rect(R_X, PNL_Y, HALF, PNL_H, "FD");
+
+    // Navy info bar
+    doc.setFillColor(0, 40, 60);
+    doc.rect(R_X, PNL_Y, HALF, INFO_H, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(0, 214, 242);
+    doc.text("Missing Expense Receipt Form", R_X + 3, PNL_Y + 7);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(5.5);
+    doc.setTextColor(160, 200, 215);
+    doc.text("Insight Global LLC — Internal Use Only", R_X + 3, PNL_Y + 13);
+
+    let ry = PNL_Y + INFO_H + 8;
+
+    if (form) {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(6);
+      doc.setTextColor(100, 116, 139);
+      doc.text("BUSINESS PURPOSE", R_X + 5, ry);
+      ry += 5;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(30, 40, 60);
+      if (form.business_purpose) {
+        const bpLines = doc.splitTextToSize(form.business_purpose, HALF - 10);
+        doc.text(bpLines.slice(0, 6), R_X + 5, ry);
+        ry += Math.min(bpLines.length, 6) * 5 + 6;
+      } else {
+        doc.setTextColor(180, 190, 200);
+        doc.text("Not provided", R_X + 5, ry);
+        ry += 10;
+      }
+
+      doc.setDrawColor(220, 228, 236);
+      doc.setLineWidth(0.2);
+      doc.line(R_X + 5, ry, R_X + HALF - 5, ry);
+      ry += 7;
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(6);
+      doc.setTextColor(100, 116, 139);
+      doc.text("REASON FOR MISSING RECEIPT", R_X + 5, ry);
+      ry += 5;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(30, 40, 60);
+      if (form.reason) {
+        const rLines = doc.splitTextToSize(form.reason, HALF - 10);
+        doc.text(rLines.slice(0, 6), R_X + 5, ry);
+        ry += Math.min(rLines.length, 6) * 5 + 6;
+      } else {
+        doc.setTextColor(180, 190, 200);
+        doc.text("Not provided", R_X + 5, ry);
+        ry += 10;
+      }
+
+      doc.setDrawColor(220, 228, 236);
+      doc.setLineWidth(0.2);
+      doc.line(R_X + 5, ry, R_X + HALF - 5, ry);
+      ry += 7;
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(6);
+      doc.setTextColor(100, 116, 139);
+      doc.text("ELECTRONIC SIGNATURE", R_X + 5, ry);
+      ry += 7;
+      const sig = form.signature_url?.startsWith("sig:") ? form.signature_url.slice(4) : null;
+      if (sig) {
+        doc.setFont("helvetica", "bolditalic");
+        doc.setFontSize(16);
+        doc.setTextColor(0, 40, 60);
+        doc.text(sig, R_X + 5, ry);
+        ry += 7;
+        doc.setDrawColor(0, 40, 60);
+        doc.setLineWidth(0.5);
+        doc.line(R_X + 5, ry, R_X + HALF - 5, ry);
+        ry += 5;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(6);
+        doc.setTextColor(160, 174, 192);
+        doc.text(
+          form.completed_at
+            ? `Electronically signed · ${new Date(form.completed_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`
+            : "Pending signature",
+          R_X + 5, ry
+        );
+      } else {
+        doc.setFont("helvetica", "italic");
+        doc.setFontSize(8);
+        doc.setTextColor(180, 190, 200);
+        doc.text("Not yet signed", R_X + 5, ry);
+      }
+    } else {
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(8);
+      doc.setTextColor(180, 190, 200);
+      doc.text("No form submitted", R_X + 5, ry);
+    }
+  }
 
   pdfFooter(doc, PW, PH);
   doc.save(`${packetLabel.replace(/\s+/g, "_")}_expense_packet.pdf`);
