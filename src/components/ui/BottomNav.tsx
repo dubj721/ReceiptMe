@@ -108,7 +108,7 @@ export default function BottomNav() {
                 stroke={addActive ? CYAN : INACTIVE} strokeWidth="1.5" strokeLinecap="round"/>
             </svg>
             <span className="text-[10px] font-semibold"
-              style={{ color: addActive ? CYAN : INACTIVE }}>Add</span>
+              style={{ color: addActive ? CYAN : INACTIVE }}>New</span>
           </Link>
 
         </div>
