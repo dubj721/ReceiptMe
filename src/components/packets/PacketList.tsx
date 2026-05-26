@@ -605,60 +605,8 @@ async function exportPDF(
 
     drawPageHeader("Bank Transaction", 245, 158, 11);
 
-    // ── LEFT PANEL: Transaction details ──────────────────────────────
-    doc.setFillColor(255, 252, 240);
-    doc.setDrawColor(253, 211, 77);
-    doc.setLineWidth(0.35);
-    doc.rect(L_X, PNL_Y, HALF, PNL_H, "FD");
-
-    // Amber info bar
-    doc.setFillColor(245, 158, 11);
-    doc.rect(L_X, PNL_Y, HALF, INFO_H, "F");
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(7);
-    doc.setTextColor(0, 40, 60);
-    doc.text("Transaction Details", L_X + 3, PNL_Y + 7);
-    doc.text(`$${Number(r.amount).toFixed(2)}`, L_X + HALF - 3, PNL_Y + 7, { align: "right" });
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(5.5);
-    doc.setTextColor(60, 35, 0);
-    doc.text(fmtDate(r.transaction_date), L_X + 3, PNL_Y + 13);
-
-    let ly = PNL_Y + INFO_H + 12;
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(16);
-    doc.setTextColor(0, 40, 60);
-    const vendorLines = doc.splitTextToSize(r.vendor_name, HALF - 10);
-    doc.text(vendorLines.slice(0, 2), L_X + 5, ly);
-    ly += Math.min(vendorLines.length, 2) * 8 + 4;
-
-    doc.setFontSize(22);
-    doc.text(`$${Number(r.amount).toFixed(2)}`, L_X + 5, ly);
-    ly += 12;
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    doc.setTextColor(100, 116, 139);
-    doc.text(fmtDate(r.transaction_date), L_X + 5, ly);
-    ly += 6;
-    doc.text(cap(r.category), L_X + 5, ly);
-    ly += 14;
-
-    const badgeFill   = formDone ? [220, 252, 231] : [254, 243, 199];
-    const badgeBorder = formDone ? [134, 239, 172] : [253, 230, 138];
-    const badgeText   = formDone ? [21, 128, 61]   : [146, 64, 14];
-    doc.setFillColor( ...(badgeFill   as [number,number,number]));
-    doc.setDrawColor( ...(badgeBorder as [number,number,number]));
-    doc.setLineWidth(0.3);
-    doc.roundedRect(L_X + 5, ly, HALF - 10, 9, 2, 2, "FD");
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(6.5);
-    doc.setTextColor( ...(badgeText as [number,number,number]));
-    doc.text(
-      formDone ? "Form — Complete ✓" : "Form — Pending",
-      L_X + 7, ly + 6.5
-    );
+    // ── LEFT PANEL: Bank transaction image (same card as photo receipts) ──
+    drawReceiptPanel(r, L_X);
 
     // ── RIGHT PANEL: Missing Receipt Form ────────────────────────────
     doc.setFillColor(250, 252, 255);
