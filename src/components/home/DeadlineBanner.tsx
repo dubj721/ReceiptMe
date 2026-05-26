@@ -35,9 +35,9 @@ export default function DeadlineBanner({
             border: "1px solid rgba(0,214,242,0.15)",
           }}>
           <p className="text-2xl mb-2">📍</p>
-          <p className="text-white font-bold text-base">Set your office city</p>
+          <p className="text-white font-bold text-base">Set your office</p>
           <p className="text-sm mt-1" style={{ color: "rgba(255,255,255,0.5)" }}>
-            Tap here to choose your city in Settings and see your expense deadline.
+            Tap here to choose your office in Settings and see your expense deadline.
           </p>
         </div>
       </Link>

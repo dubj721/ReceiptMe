@@ -176,10 +176,10 @@ export default function SettingsPage() {
           </p>
         </div>
 
-        {/* ── Office City picker ──────────────────────────────────────────── */}
+        {/* ── Office picker ──────────────────────────────────────────────── */}
         <div className="mb-5" ref={searchRef}>
           <label className="block text-[10px] font-semibold uppercase tracking-widest mb-1.5 text-gray-400">
-            Office City
+            Your Office
           </label>
 
           {city ? (
@@ -217,7 +217,7 @@ export default function SettingsPage() {
                 color: "#111827",
                 boxSizing: "border-box",
               }}
-              placeholder="Search office city…"
+              placeholder="Search your office…"
             />
           )}
 
@@ -233,7 +233,7 @@ export default function SettingsPage() {
               }}>
               {filtered.length === 0 ? (
                 <p className="px-4 py-3 text-sm text-gray-400">
-                  No cities found
+                  No offices found
                 </p>
               ) : (
                 filtered.map(c => (

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { ReceiptCategory } from "@/types";
 
-type Source = "photo" | "bank_transaction" | "manual";
+type Source = "photo" | "bank_transaction";
 type Step   = "source" | "upload" | "processing" | "form" | "missing-form" | "success";
 
 interface ReceiptForm {
@@ -233,8 +233,6 @@ export default function CapturePage() {
         onClick={() => { setSource("photo"); setStep("upload"); }} />
       <SourceCard icon="🏦" title="Bank Transaction" subtitle="Screenshot from your bank — form required"
         onClick={() => { setSource("bank_transaction"); setStep("upload"); }} />
-      <SourceCard icon="✍️" title="Manual Entry" subtitle="Type receipt details by hand"
-        onClick={() => { setSource("manual"); setStep("form"); }} />
       <SourceCard icon="📧" title="Email Forward" subtitle="Forward a receipt email to your inbox" disabled />
       <SourceCard icon="↗️" title="Concur Import" subtitle="Pull invoices from your Concur account" disabled />
     </div>
@@ -271,7 +269,7 @@ export default function CapturePage() {
 
   if (step === "form") return (
     <div className="px-4 pt-2 md:pt-0 pb-8 space-y-5 md:max-w-lg md:mx-auto">
-      {source !== "manual" && back("upload")}
+      {back("upload")}
       {preview && (
         <div className="w-full rounded-2xl overflow-hidden border border-gray-100 max-h-40">
           <img src={preview} alt="Receipt" className="w-full object-cover max-h-40" />
@@ -279,8 +277,22 @@ export default function CapturePage() {
       )}
       <div>
         <label className="label">Vendor / Merchant</label>
-        <input className={inp} placeholder="e.g. Delta, Marriott…" value={form.vendor_name}
-          onChange={e => setForm(f => ({ ...f, vendor_name: e.target.value }))} />
+        <div className="relative">
+          <input className={inp} placeholder="e.g. Delta, Marriott…" value={form.vendor_name}
+            onChange={e => setForm(f => ({ ...f, vendor_name: e.target.value }))}
+            style={{ paddingRight: form.vendor_name ? "2.25rem" : undefined }} />
+          {form.vendor_name && (
+            <button
+              type="button"
+              onClick={() => setForm(f => ({ ...f, vendor_name: "" }))}
+              className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full flex items-center justify-center transition-colors"
+              style={{ background: "#e2e8f0" }}>
+              <svg width="8" height="8" viewBox="0 0 10 10" fill="none">
+                <path d="M2 2l6 6M8 2L2 8" stroke="#6b7280" strokeWidth="1.8" strokeLinecap="round"/>
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
