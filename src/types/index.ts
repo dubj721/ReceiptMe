@@ -1,6 +1,6 @@
 export type Country = "US" | "CA";
 
-export type ReceiptSource = "photo" | "email" | "concur" | "bank_transaction" | "manual";
+export type ReceiptSource = "photo" | "email" | "concur" | "bank_transaction" | "bank_statement" | "manual";
 
 export type ReceiptStatus = "active" | "overdue_flagged" | "archived";
 

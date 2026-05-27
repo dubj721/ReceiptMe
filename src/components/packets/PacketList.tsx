@@ -80,7 +80,7 @@ function ReceiptCard({
   onMoveClick?:    (r: Receipt) => void;
 }) {
   const days      = daysOld(receipt.transaction_date);
-  const isBank    = receipt.source === "bank_transaction";
+  const isBank    = receipt.source === "bank_transaction" || receipt.source === "bank_statement";
   const formDone  = !!receipt.missing_receipt_form?.completed_at;
   const needsForm = isBank && !formDone;
   const isOverdue = isPolicyApplicable(country as "US" | "CA") && days >= 61;
@@ -186,7 +186,9 @@ function ReceiptCard({
           <div
             className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 text-lg"
             style={{ background: "#f1f5f9" }}>
-            {categoryEmoji[receipt.category] ?? "📄"}
+            {receipt.source === "bank_statement" ? "🏦"
+              : receipt.source === "bank_transaction" ? "💳"
+              : categoryEmoji[receipt.category] ?? "📄"}
           </div>
 
           <div className="flex-1 min-w-0">
