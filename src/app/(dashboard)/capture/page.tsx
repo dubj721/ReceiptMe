@@ -7,7 +7,7 @@ import type { ReceiptCategory } from "@/types";
 import ClearableInput from "@/components/ui/ClearableInput";
 
 type Source = "photo" | "bank_transaction" | "bank_statement";
-type Step   = "source" | "upload" | "processing" | "line-picker" | "form" | "missing-form" | "success";
+type Step   = "source" | "upload" | "processing" | "line-picker" | "bulk-review" | "form" | "missing-form" | "success";
 
 interface ReceiptForm {
   vendor_name:      string;
@@ -31,6 +31,11 @@ interface StatementRow {
   amount:  string;
   rawText: string;
   bbox:    { x: number; y: number; w: number; h: number };
+}
+
+interface BulkLine {
+  row:  StatementRow;
+  form: ReceiptForm;
 }
 
 const CATEGORIES: { value: ReceiptCategory; label: string; emoji: string }[] = [
@@ -135,17 +140,19 @@ export default function CapturePage() {
   const [isOverdue,   setIsOverdue]   = useState(false);
 
   // Bank statement state
-  const [stmtRows,        setStmtRows]        = useState<StatementRow[]>([]);
-  const [selectedRow,     setSelectedRow]     = useState<StatementRow | null>(null);
+  const [stmtRows,          setStmtRows]          = useState<StatementRow[]>([]);
+  const [selectedRows,      setSelectedRows]      = useState<StatementRow[]>([]);
+  const [bulkLines,         setBulkLines]         = useState<BulkLine[]>([]);
   const [compressedDataUrl, setCompressedDataUrl] = useState<string | null>(null);
-  const [compressedDims,  setCompressedDims]  = useState<{ w: number; h: number } | null>(null);
+  const [compressedDims,    setCompressedDims]    = useState<{ w: number; h: number } | null>(null);
+  const [saveProgress,      setSaveProgress]      = useState<{ current: number; total: number } | null>(null);
+  const [savedCount,        setSavedCount]        = useState(0);
 
   const handleFile = useCallback((file: File) => {
     setImageFile(file);
     setPreview(URL.createObjectURL(file));
   }, []);
 
-  // Compress + return base64, mime, dataUrl, and pixel dimensions
   async function compressImage(file: File): Promise<{
     b64: string; mime: string; dataUrl: string; w: number; h: number;
   }> {
@@ -173,16 +180,13 @@ export default function CapturePage() {
     });
   }
 
-  // Standard OCR for photo / bank_transaction
   async function processImage() {
     if (!imageFile) { setStep("form"); return; }
     setStep("processing");
-
     if (source === "bank_statement") {
       await processStatement();
       return;
     }
-
     try {
       const { b64, mime } = await compressImage(imageFile);
       const resp = await fetch("/api/receipts/ocr", {
@@ -204,14 +208,12 @@ export default function CapturePage() {
     setStep("form");
   }
 
-  // Statement OCR — returns transaction rows with bounding boxes
   async function processStatement() {
     if (!imageFile) { setStep("line-picker"); return; }
     try {
       const compressed = await compressImage(imageFile);
       setCompressedDataUrl(compressed.dataUrl);
       setCompressedDims({ w: compressed.w, h: compressed.h });
-
       const resp = await fetch("/api/receipts/ocr-statement", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
@@ -226,47 +228,103 @@ export default function CapturePage() {
         const { rows } = await resp.json();
         setStmtRows(rows ?? []);
       }
-    } catch { /* OCR failed — show empty picker so user can enter manually */ }
+    } catch { /* OCR failed */ }
     setStep("line-picker");
   }
 
-  // Draw highlight on original image and auto-fill form from selected row
-  async function confirmStatementLine() {
-    if (selectedRow && compressedDataUrl && compressedDims) {
-      const canvas  = document.createElement("canvas");
-      canvas.width  = compressedDims.w;
-      canvas.height = compressedDims.h;
-      const ctx = canvas.getContext("2d")!;
+  function toggleRow(row: StatementRow) {
+    setSelectedRows(prev =>
+      prev.includes(row) ? prev.filter(r => r !== row) : [...prev, row]
+    );
+  }
 
-      const img = new Image();
-      img.src = compressedDataUrl;
-      await new Promise<void>(res => { img.onload = () => res(); });
-      ctx.drawImage(img, 0, 0);
-
-      const { x, y, w, h } = selectedRow.bbox;
-      ctx.fillStyle = "rgba(254,249,195,0.6)";
-      ctx.fillRect(x, y, w, h);
-      ctx.strokeStyle = "#f59e0b";
-      ctx.lineWidth = 2;
-      ctx.strokeRect(x, y, w, h);
-      // Amber left accent bar
-      ctx.fillStyle = "#f59e0b";
-      ctx.fillRect(0, y, 5, h);
-
-      const blob     = await new Promise<Blob>(res => canvas.toBlob(b => res(b!), "image/jpeg", 0.92));
-      const annotated = new File([blob], "statement_annotated.jpg", { type: "image/jpeg" });
-      setImageFile(annotated);
-      setPreview(canvas.toDataURL("image/jpeg", 0.92));
-
-      setForm(prev => ({
-        ...prev,
-        vendor_name:      selectedRow.vendor   || prev.vendor_name,
-        transaction_date: selectedRow.isoDate  || prev.transaction_date,
-        amount:           selectedRow.amount   || prev.amount,
-        category:         selectedRow.vendor ? inferCategory(selectedRow.vendor) : prev.category,
-      }));
+  // Build BulkLine array and advance to bulk-review, or fall through to manual form
+  function confirmSelection() {
+    if (selectedRows.length === 0) {
+      setStep("form");
+      return;
     }
-    setStep("form");
+    const lines: BulkLine[] = selectedRows.map(row => ({
+      row,
+      form: {
+        vendor_name:      row.vendor,
+        transaction_date: row.isoDate || new Date().toISOString().split("T")[0],
+        amount:           row.amount,
+        currency:         "USD",
+        category:         inferCategory(row.vendor),
+        notes:            "",
+      },
+    }));
+    setBulkLines(lines);
+    setStep("bulk-review");
+  }
+
+  // Canvas: draw original image + amber highlight for one row, upload, return URL
+  async function annotateAndUpload(row: StatementRow): Promise<string | null> {
+    if (!compressedDataUrl || !compressedDims) return null;
+    const canvas = document.createElement("canvas");
+    canvas.width  = compressedDims.w;
+    canvas.height = compressedDims.h;
+    const ctx = canvas.getContext("2d")!;
+    const img = new Image();
+    img.src = compressedDataUrl;
+    await new Promise<void>(res => { img.onload = () => res(); });
+    ctx.drawImage(img, 0, 0);
+    const { x, y, w, h } = row.bbox;
+    ctx.fillStyle = "rgba(254,249,195,0.6)";
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = "#f59e0b";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x, y, w, h);
+    ctx.fillStyle = "#f59e0b";
+    ctx.fillRect(0, y, 5, h); // amber left accent bar
+    const blob = await new Promise<Blob>(res => canvas.toBlob(b => res(b!), "image/jpeg", 0.92));
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+    const path = `${user.id}/stmt_${Date.now()}_${Math.random().toString(36).slice(2, 6)}.jpg`;
+    const { error: uploadErr } = await supabase.storage
+      .from("receipts").upload(path, blob, { cacheControl: "3600", upsert: false });
+    if (uploadErr) return null;
+    return supabase.storage.from("receipts").getPublicUrl(path).data?.publicUrl ?? null;
+  }
+
+  // Save all bulk lines: annotate each image, create receipt + missing form per line
+  async function saveAllLines() {
+    setSaving(true);
+    setError(null);
+    setSaveProgress({ current: 0, total: bulkLines.length });
+    let count = 0;
+
+    for (let i = 0; i < bulkLines.length; i++) {
+      setSaveProgress({ current: i + 1, total: bulkLines.length });
+      const { row, form: lineForm } = bulkLines[i];
+      try {
+        const image_url = await annotateAndUpload(row);
+        const receiptResp = await fetch("/api/receipts", {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify({
+            ...lineForm,
+            amount:    parseFloat(lineForm.amount),
+            source:    "bank_statement",
+            image_url,
+          }),
+        });
+        if (!receiptResp.ok) continue;
+        const { id: rid } = await receiptResp.json();
+        await fetch(`/api/missing-forms/${rid}`, {
+          method:  "PUT",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify({ ...mForm, completed_at: new Date().toISOString() }),
+        });
+        count++;
+      } catch { /* skip this line, continue */ }
+    }
+
+    setSavedCount(count);
+    setSaving(false);
+    setSaveProgress(null);
+    setStep("success");
   }
 
   async function uploadImage(): Promise<string | null> {
@@ -318,6 +376,15 @@ export default function CapturePage() {
     } finally { setSaving(false); }
   }
 
+  function resetAll() {
+    setStep("source"); setForm(EMPTY); setPreview(null);
+    setImageFile(null); setMForm({ business_purpose: "", reason: "", signature: "" });
+    setReceiptId(null); setError(null); setIsOverdue(false);
+    setStmtRows([]); setSelectedRows([]); setBulkLines([]);
+    setCompressedDataUrl(null); setCompressedDims(null);
+    setSavedCount(0); setSaveProgress(null);
+  }
+
   const inp  = "w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:border-brand-cyan transition-colors";
   const back = (to: Step) => (
     <button onClick={() => setStep(to)}
@@ -339,7 +406,7 @@ export default function CapturePage() {
         subtitle="Single transaction screenshot — form required"
         onClick={() => { setSource("bank_transaction"); setStep("upload"); }} />
       <SourceCard icon="🏦" title="Bank Statement"
-        subtitle="Full statement — we'll highlight your line"
+        subtitle="Upload a statement — select multiple expenses at once"
         onClick={() => { setSource("bank_statement"); setStep("upload"); }} />
       <SourceCard icon="📧" title="Email Forward"
         subtitle="Forward a receipt email to your inbox" disabled />
@@ -354,14 +421,14 @@ export default function CapturePage() {
       {back("source")}
       <div>
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
-          {source === "photo"           ? "Photo Receipt"
+          {source === "photo"            ? "Photo Receipt"
            : source === "bank_statement" ? "Bank Statement"
            : "Bank Transaction Screenshot"}
         </p>
         {source === "bank_statement" && (
           <div className="mb-3 px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-200">
             <p className="text-xs font-semibold text-amber-700">
-              📄 Upload an image of your bank statement page. We'll detect the transactions and let you highlight the one you're expensing.
+              📄 Upload your bank statement. We'll detect all transactions and let you select which ones to expense — each creates a separate highlighted receipt.
             </p>
           </div>
         )}
@@ -403,16 +470,16 @@ export default function CapturePage() {
     <div className="px-4 pt-2 md:pt-0 pb-8 space-y-4 md:max-w-lg md:mx-auto">
       {back("upload")}
       <div>
-        <p className="text-sm font-bold text-gray-900">Select the transaction you're expensing</p>
+        <p className="text-sm font-bold text-gray-900">Select expenses to submit</p>
         <p className="text-xs text-gray-400 mt-0.5">
-          Tap the line — we'll highlight it on your statement image as proof of source.
+          Tap each line you're expensing. Each selected line becomes its own receipt with a highlighted proof image.
         </p>
       </div>
 
-      {/* Statement preview */}
+      {/* Statement image preview */}
       {preview && (
         <div className="w-full rounded-2xl overflow-hidden border border-gray-100"
-          style={{ maxHeight: 220, overflowY: "auto" }}>
+          style={{ maxHeight: 200, overflowY: "auto" }}>
           <img src={preview} alt="Bank statement" className="w-full" />
         </div>
       )}
@@ -420,14 +487,21 @@ export default function CapturePage() {
       {/* Transaction rows */}
       {stmtRows.length > 0 ? (
         <div className="space-y-2">
-          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">
-            {stmtRows.length} transaction{stmtRows.length !== 1 ? "s" : ""} detected
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">
+              {stmtRows.length} transaction{stmtRows.length !== 1 ? "s" : ""} detected
+            </p>
+            {selectedRows.length > 0 && (
+              <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: "#00D6F2" }}>
+                {selectedRows.length} selected
+              </p>
+            )}
+          </div>
           {stmtRows.map((row, i) => {
-            const isSelected = selectedRow === row;
+            const isSelected = selectedRows.includes(row);
             return (
               <button key={i}
-                onClick={() => setSelectedRow(row)}
+                onClick={() => toggleRow(row)}
                 className={`w-full text-left px-4 py-3 rounded-2xl border transition-all active:scale-[0.99]
                   ${isSelected
                     ? "border-brand-cyan bg-brand-cyan/5"
@@ -453,7 +527,7 @@ export default function CapturePage() {
                         </svg>
                       </div>
                     ) : (
-                      <div className="w-5 h-5 rounded-full border border-gray-200 flex-shrink-0" />
+                      <div className="w-5 h-5 rounded-full border-2 border-gray-200 flex-shrink-0" />
                     )}
                   </div>
                 </div>
@@ -465,21 +539,123 @@ export default function CapturePage() {
         <div className="text-center py-6 px-4 rounded-2xl border border-gray-100 bg-gray-50">
           <p className="text-sm text-gray-500 font-medium">No transactions auto-detected</p>
           <p className="text-xs text-gray-400 mt-1">
-            The statement format may not have been recognized. Enter details manually on the next step.
+            The statement format wasn't recognized. Enter details manually on the next step.
           </p>
         </div>
       )}
 
       <button
-        onClick={confirmStatementLine}
-        disabled={stmtRows.length > 0 && !selectedRow}
-        className={`w-full btn-primary ${stmtRows.length > 0 && !selectedRow ? "opacity-50" : ""}`}>
-        {selectedRow ? "Highlight & Continue →" : "Continue manually →"}
+        onClick={confirmSelection}
+        disabled={stmtRows.length > 0 && selectedRows.length === 0}
+        className={`w-full btn-primary ${stmtRows.length > 0 && selectedRows.length === 0 ? "opacity-50" : ""}`}>
+        {selectedRows.length > 0
+          ? `Expense ${selectedRows.length} selected line${selectedRows.length !== 1 ? "s" : ""} →`
+          : "Continue manually →"}
       </button>
     </div>
   );
 
-  // ── FORM ──────────────────────────────────────────────────────────────
+  // ── BULK REVIEW ───────────────────────────────────────────────────────
+  if (step === "bulk-review") return (
+    <div className="px-4 pt-2 md:pt-0 pb-8 space-y-4 md:max-w-lg md:mx-auto">
+      {back("line-picker")}
+      <div>
+        <p className="text-sm font-bold text-gray-900">
+          Review {bulkLines.length} expense{bulkLines.length !== 1 ? "s" : ""}
+        </p>
+        <p className="text-xs text-gray-400 mt-0.5">
+          Each line will be saved as a separate receipt with its own highlighted proof image.
+        </p>
+      </div>
+
+      <div className="space-y-3">
+        {bulkLines.map((line, i) => (
+          <div key={i} className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
+            {/* Card header */}
+            <div className="px-4 py-2 flex items-center justify-between"
+              style={{ background: "#00283C" }}>
+              <p className="text-xs font-bold text-white">
+                Expense {i + 1} of {bulkLines.length}
+              </p>
+              <p className="text-xs" style={{ color: "rgba(255,255,255,0.5)" }}>{line.row.date}</p>
+            </div>
+            {/* Editable fields */}
+            <div className="p-3 space-y-2">
+              <div>
+                <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide block mb-1">
+                  Vendor
+                </label>
+                <input className={inp} value={line.form.vendor_name}
+                  onChange={e => setBulkLines(prev => prev.map((l, idx) =>
+                    idx === i ? { ...l, form: { ...l.form, vendor_name: e.target.value } } : l
+                  ))} />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide block mb-1">
+                    Date
+                  </label>
+                  <input type="date" className={inp} value={line.form.transaction_date}
+                    onChange={e => setBulkLines(prev => prev.map((l, idx) =>
+                      idx === i ? { ...l, form: { ...l.form, transaction_date: e.target.value } } : l
+                    ))} />
+                </div>
+                <div>
+                  <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide block mb-1">
+                    Amount
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                    <input className={`${inp} pl-6`} type="number" min="0" step="0.01"
+                      value={line.form.amount}
+                      onChange={e => setBulkLines(prev => prev.map((l, idx) =>
+                        idx === i ? { ...l, form: { ...l.form, amount: e.target.value } } : l
+                      ))} />
+                  </div>
+                </div>
+              </div>
+              {/* Category pills */}
+              <div>
+                <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide block mb-1">
+                  Category
+                </label>
+                <div className="grid grid-cols-4 gap-1">
+                  {CATEGORIES.map(cat => (
+                    <button key={cat.value}
+                      onClick={() => setBulkLines(prev => prev.map((l, idx) =>
+                        idx === i ? { ...l, form: { ...l.form, category: cat.value } } : l
+                      ))}
+                      className={`flex flex-col items-center gap-0.5 py-2 rounded-xl border text-xs font-medium transition-all
+                        ${line.form.category === cat.value
+                          ? "bg-brand-navy text-white border-brand-navy"
+                          : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"}`}>
+                      <span className="text-base leading-none">{cat.emoji}</span>
+                      <span className="text-[10px]">{cat.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="px-4 py-3 rounded-2xl bg-amber-50 border border-amber-200">
+        <p className="text-xs font-semibold text-amber-700">
+          📋 One Missing Receipt Form will be filled next and attached to all {bulkLines.length} receipt{bulkLines.length !== 1 ? "s" : ""}.
+        </p>
+      </div>
+
+      <button
+        onClick={() => setStep("missing-form")}
+        disabled={bulkLines.some(l => !l.form.vendor_name || !l.form.amount)}
+        className={`w-full btn-primary ${bulkLines.some(l => !l.form.vendor_name || !l.form.amount) ? "opacity-50" : ""}`}>
+        Continue to Form →
+      </button>
+    </div>
+  );
+
+  // ── FORM (photo / bank_transaction / bank_statement manual) ───────────
   if (step === "form") return (
     <div className="px-4 pt-2 md:pt-0 pb-8 space-y-5 md:max-w-lg md:mx-auto">
       {back(source === "bank_statement" ? "line-picker" : "upload")}
@@ -580,36 +756,61 @@ export default function CapturePage() {
   );
 
   // ── MISSING FORM ──────────────────────────────────────────────────────
+  const isBulk = source === "bank_statement" && bulkLines.length > 0;
+
   if (step === "missing-form") return (
     <div className="px-4 pt-2 md:pt-0 pb-8 space-y-5 md:max-w-lg md:mx-auto">
+      {back(isBulk ? "bulk-review" : "form")}
       <div className="px-4 py-3 rounded-2xl bg-brand-navy/5 border border-brand-navy/10">
         <p className="text-xs font-bold text-brand-navy uppercase tracking-widest mb-0.5">Insight Global LLC</p>
         <p className="text-sm font-semibold text-gray-800">Missing Expense Receipt Form</p>
         <p className="text-xs text-gray-500 mt-0.5">
-          {source === "bank_statement"
-            ? "Required for all bank statement submissions"
-            : "Required for all bank transaction submissions"}
+          {isBulk
+            ? `Applies to all ${bulkLines.length} selected statement expense${bulkLines.length !== 1 ? "s" : ""}`
+            : source === "bank_statement"
+              ? "Required for all bank statement submissions"
+              : "Required for all bank transaction submissions"}
         </p>
       </div>
-      <div className="space-y-3 rounded-2xl border border-gray-100 bg-gray-50 p-4">
-        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-2">Auto-filled from receipt</p>
-        <div className="grid grid-cols-2 gap-3 text-xs">
-          <div><p className="text-gray-400 mb-0.5">Vendor</p><p className="font-semibold text-gray-800">{form.vendor_name || "—"}</p></div>
-          <div><p className="text-gray-400 mb-0.5">Amount</p><p className="font-semibold text-gray-800">${parseFloat(form.amount || "0").toFixed(2)}</p></div>
-          <div>
-            <p className="text-gray-400 mb-0.5">Date</p>
-            <p className="font-semibold text-gray-800">
-              {new Date(form.transaction_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-            </p>
-          </div>
-          {source === "bank_statement" && selectedRow && (
-            <div>
-              <p className="text-gray-400 mb-0.5">Source</p>
-              <p className="font-semibold text-amber-700">Statement line highlighted</p>
+
+      {/* Bulk: summary table of all lines */}
+      {isBulk ? (
+        <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-2">
+            Expenses from this statement
+          </p>
+          <div className="space-y-1.5">
+            {bulkLines.map((l, i) => (
+              <div key={i} className="flex items-center justify-between text-xs">
+                <span className="text-gray-700 font-medium truncate max-w-[60%]">{l.form.vendor_name}</span>
+                <span className="text-gray-500">${parseFloat(l.form.amount || "0").toFixed(2)}</span>
+              </div>
+            ))}
+            <div className="border-t border-gray-200 pt-1.5 flex items-center justify-between text-xs font-bold">
+              <span className="text-gray-700">Total</span>
+              <span style={{ color: "#00283C" }}>
+                ${bulkLines.reduce((s, l) => s + parseFloat(l.form.amount || "0"), 0).toFixed(2)}
+              </span>
             </div>
-          )}
+          </div>
         </div>
-      </div>
+      ) : (
+        /* Single receipt: summary */
+        <div className="space-y-3 rounded-2xl border border-gray-100 bg-gray-50 p-4">
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-2">Auto-filled from receipt</p>
+          <div className="grid grid-cols-2 gap-3 text-xs">
+            <div><p className="text-gray-400 mb-0.5">Vendor</p><p className="font-semibold text-gray-800">{form.vendor_name || "—"}</p></div>
+            <div><p className="text-gray-400 mb-0.5">Amount</p><p className="font-semibold text-gray-800">${parseFloat(form.amount || "0").toFixed(2)}</p></div>
+            <div>
+              <p className="text-gray-400 mb-0.5">Date</p>
+              <p className="font-semibold text-gray-800">
+                {new Date(form.transaction_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div>
         <label className="label">Business Purpose for Expense <span className="text-red-400">*</span></label>
         <textarea className={`${inp} resize-none`} rows={3}
@@ -633,16 +834,41 @@ export default function CapturePage() {
           onChange={e => setMForm(f => ({ ...f, signature: e.target.value }))} />
         <p className="text-[10px] text-gray-400 mt-1">By typing your name you agree this serves as your electronic signature.</p>
       </div>
+
       {error && <p className="text-xs text-red-500 font-medium">{error}</p>}
+
+      {/* Bulk save progress bar */}
+      {saveProgress && (
+        <div className="px-4 py-3 rounded-2xl border" style={{ background: "#f0fdfe", borderColor: "rgba(0,214,242,0.3)" }}>
+          <p className="text-xs font-semibold" style={{ color: "#00283C" }}>
+            Saving receipt {saveProgress.current} of {saveProgress.total}…
+          </p>
+          <div className="mt-2 h-1.5 rounded-full bg-gray-200 overflow-hidden">
+            <div className="h-full rounded-full transition-all duration-300"
+              style={{
+                background: "#00D6F2",
+                width: `${(saveProgress.current / saveProgress.total) * 100}%`,
+              }} />
+          </div>
+        </div>
+      )}
+
       <div className="flex gap-3">
-        <button onClick={() => setStep("success")}
-          className="flex-1 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-500 hover:bg-gray-50 transition-colors">
-          Skip for now
-        </button>
-        <button onClick={saveMissingForm}
+        {!isBulk && (
+          <button onClick={() => setStep("success")}
+            className="flex-1 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-500 hover:bg-gray-50 transition-colors">
+            Skip for now
+          </button>
+        )}
+        <button
+          onClick={isBulk ? saveAllLines : saveMissingForm}
           disabled={saving || !mForm.business_purpose || !mForm.reason || !mForm.signature}
           className={`flex-1 btn-primary ${(saving || !mForm.business_purpose || !mForm.reason || !mForm.signature) ? "opacity-50" : ""}`}>
-          {saving ? "Submitting…" : "Submit Form"}
+          {saving
+            ? saveProgress ? `Saving ${saveProgress.current}/${saveProgress.total}…` : "Submitting…"
+            : isBulk
+              ? `Save ${bulkLines.length} Receipt${bulkLines.length !== 1 ? "s" : ""}`
+              : "Submit Form"}
         </button>
       </div>
     </div>
@@ -667,11 +893,13 @@ export default function CapturePage() {
       </div>
       <div>
         <p className="text-lg font-bold text-gray-900">
-          {isOverdue ? "Receipt saved — action needed" : "Receipt saved!"}
+          {savedCount > 1 ? `${savedCount} receipts saved!`
+            : isOverdue ? "Receipt saved — action needed" : "Receipt saved!"}
         </p>
         <p className="text-sm text-gray-400 mt-1">
-          {isOverdue
-            ? "Your receipt has been added to your account."
+          {savedCount > 1
+            ? `${savedCount} expenses highlighted on your statement and added to your packet.`
+            : isOverdue ? "Your receipt has been added to your account."
             : source === "bank_statement"
               ? "Statement uploaded with highlighted transaction and form recorded."
               : source === "bank_transaction"
@@ -679,6 +907,30 @@ export default function CapturePage() {
                 : "Your receipt has been added to your account."}
         </p>
       </div>
+
+      {/* Multi-save summary */}
+      {savedCount > 1 && bulkLines.length > 0 && (
+        <div className="w-full rounded-2xl border border-gray-100 bg-gray-50 p-4 text-left">
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-2">Saved expenses</p>
+          <div className="space-y-1.5">
+            {bulkLines.map((l, i) => (
+              <div key={i} className="flex items-center justify-between text-xs">
+                <span className="text-gray-700 truncate max-w-[60%]">{l.form.vendor_name}</span>
+                <span className="font-semibold" style={{ color: "#00283C" }}>
+                  ${parseFloat(l.form.amount || "0").toFixed(2)}
+                </span>
+              </div>
+            ))}
+            <div className="border-t border-gray-200 pt-1.5 flex justify-between text-xs font-bold">
+              <span className="text-gray-700">Total</span>
+              <span style={{ color: "#00283C" }}>
+                ${bulkLines.reduce((s, l) => s + parseFloat(l.form.amount || "0"), 0).toFixed(2)}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isOverdue && (
         <div className="w-full rounded-2xl px-4 py-3 text-left"
           style={{ background: "#fffbeb", border: "1px solid rgba(245,158,11,0.35)" }}>
@@ -691,14 +943,10 @@ export default function CapturePage() {
           </p>
         </div>
       )}
+
       <div className="flex gap-3 w-full max-w-xs">
-        <button onClick={() => {
-          setStep("source"); setForm(EMPTY); setPreview(null);
-          setImageFile(null); setMForm({ business_purpose: "", reason: "", signature: "" });
-          setReceiptId(null); setError(null); setIsOverdue(false);
-          setStmtRows([]); setSelectedRow(null);
-          setCompressedDataUrl(null); setCompressedDims(null);
-        }} className="flex-1 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
+        <button onClick={resetAll}
+          className="flex-1 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
           Add Another
         </button>
         <button
